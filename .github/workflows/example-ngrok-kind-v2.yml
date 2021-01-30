@@ -27,3 +27,5 @@ jobs:
           ngrok_token: ${{ secrets.NGROK_TOKEN }}
           ngrok_addr_1: 30880
           ngrok_proto_1: http
+          ngrok_addr_2: 31117
+          ngrok_proto_2: http
