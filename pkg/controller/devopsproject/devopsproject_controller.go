@@ -19,6 +19,10 @@ package devopsproject
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"reflect"
+	"time"
+
 	"github.com/emicklei/go-restful"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,7 +38,10 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
-	devopsv1alpha3 "kubesphere.io/kubesphere/pkg/apis/devops/v1alpha3"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	devopsv1alpha3 "kubesphere.io/api/devops/v1alpha3"
+
 	"kubesphere.io/kubesphere/pkg/client/clientset/versioned/scheme"
 	tenantv1alpha1informers "kubesphere.io/kubesphere/pkg/client/informers/externalversions/tenant/v1alpha1"
 	tenantv1alpha1listers "kubesphere.io/kubesphere/pkg/client/listers/tenant/v1alpha1"
@@ -43,10 +50,6 @@ import (
 	devopsClient "kubesphere.io/kubesphere/pkg/simple/client/devops"
 	"kubesphere.io/kubesphere/pkg/utils/k8sutil"
 	"kubesphere.io/kubesphere/pkg/utils/sliceutil"
-	"net/http"
-	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"time"
 
 	kubesphereclient "kubesphere.io/kubesphere/pkg/client/clientset/versioned"
 	devopsinformers "kubesphere.io/kubesphere/pkg/client/informers/externalversions/devops/v1alpha3"

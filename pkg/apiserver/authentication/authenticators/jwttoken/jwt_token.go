@@ -18,10 +18,13 @@ package jwttoken
 
 import (
 	"context"
+
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/klog"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+
 	"kubesphere.io/kubesphere/pkg/models/auth"
 
 	iamv1alpha2listers "kubesphere.io/kubesphere/pkg/client/listers/iam/v1alpha2"
@@ -47,7 +50,7 @@ func NewTokenAuthenticator(tokenOperator auth.TokenManagementInterface, userList
 func (t *tokenAuthenticator) AuthenticateToken(ctx context.Context, token string) (*authenticator.Response, bool, error) {
 	providedUser, err := t.tokenOperator.Verify(token)
 	if err != nil {
-		klog.Error(err)
+		klog.Warning(err)
 		return nil, false, err
 	}
 

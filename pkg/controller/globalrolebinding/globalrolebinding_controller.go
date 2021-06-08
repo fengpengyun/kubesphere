@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +36,9 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+
 	kubesphere "kubesphere.io/kubesphere/pkg/client/clientset/versioned"
 	iamv1alpha2informers "kubesphere.io/kubesphere/pkg/client/informers/externalversions/iam/v1alpha2"
 	iamv1alpha2listers "kubesphere.io/kubesphere/pkg/client/listers/iam/v1alpha2"
@@ -43,8 +46,9 @@ import (
 	devops "kubesphere.io/kubesphere/pkg/simple/client/devops"
 
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (

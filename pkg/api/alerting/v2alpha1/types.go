@@ -17,6 +17,7 @@ limitations under the License.
 package v2alpha1
 
 import (
+	"context"
 	"regexp"
 	"sort"
 	"strconv"
@@ -26,21 +27,29 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/pkg/errors"
 	prommodel "github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/pkg/timestamp"
 	"github.com/prometheus/prometheus/promql/parser"
+	"github.com/prometheus/prometheus/template"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
 const (
 	RuleLevelCluster   RuleLevel = "cluster"
 	RuleLevelNamespace RuleLevel = "namespace"
+
+	AnnotationKeyRuleUpdateTime = "rule_update_time"
 )
 
 var (
 	ErrThanosRulerNotEnabled     = errors.New("The request operation to custom alerting rule could not be done because thanos ruler is not enabled")
 	ErrAlertingRuleNotFound      = errors.New("The alerting rule was not found")
 	ErrAlertingRuleAlreadyExists = errors.New("The alerting rule already exists")
+	ErrAlertingAPIV2NotEnabled   = errors.New("The alerting v2 API is not enabled")
 
-	ruleLabelNameMatcher = regexp.MustCompile(`[a-zA-Z_][a-zA-Z0-9_]*`)
+	templateTestData       = template.AlertTemplateData(map[string]string{}, map[string]string{}, 0)
+	templateTestTextPrefix = "{{$labels := .Labels}}{{$externalLabels := .ExternalLabels}}{{$value := .Value}}"
+
+	ruleNameMatcher = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 )
 
 type RuleLevel string
@@ -64,8 +73,15 @@ func (r *PostableAlertingRule) Validate() error {
 
 	if r.Name == "" {
 		errs = append(errs, errors.New("name can not be empty"))
+	} else {
+		if !ruleNameMatcher.MatchString(r.Name) {
+			errs = append(errs, errors.New("rule name must match regular expression ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"))
+		}
 	}
-	if _, err := parser.ParseExpr(r.Query); err != nil {
+
+	if r.Query == "" {
+		errs = append(errs, errors.New("query can not be empty"))
+	} else if _, err := parser.ParseExpr(r.Query); err != nil {
 		errs = append(errs, errors.Wrapf(err, "query is invalid: %s", r.Query))
 	}
 	if r.Duration != "" {
@@ -74,11 +90,41 @@ func (r *PostableAlertingRule) Validate() error {
 		}
 	}
 
+	parseTest := func(text string) error {
+		tmpl := template.NewTemplateExpander(
+			context.TODO(),
+			templateTestTextPrefix+text,
+			"__alert_"+r.Name,
+			templateTestData,
+			prommodel.Time(timestamp.FromTime(time.Now())),
+			nil,
+			nil,
+		)
+		return tmpl.ParseTest()
+	}
+
 	if len(r.Labels) > 0 {
-		for name, _ := range r.Labels {
-			if !ruleLabelNameMatcher.MatchString(name) || strings.HasPrefix(name, "__") {
+		for name, v := range r.Labels {
+			if !prommodel.LabelName(name).IsValid() || strings.HasPrefix(name, "__") {
 				errs = append(errs, errors.Errorf(
 					"label name (%s) is not valid. The name must match [a-zA-Z_][a-zA-Z0-9_]* and has not the __ prefix (label names with this prefix are for internal use)", name))
+			}
+			if !prommodel.LabelValue(v).IsValid() {
+				errs = append(errs, errors.Errorf("invalid label value: %s", v))
+			}
+			if err := parseTest(v); err != nil {
+				errs = append(errs, errors.Errorf("invalid label value: %s", v))
+			}
+		}
+	}
+
+	if len(r.Annotations) > 0 {
+		for name, v := range r.Annotations {
+			if !prommodel.LabelName(name).IsValid() {
+				errs = append(errs, errors.Errorf("invalid annotation name: %s", v))
+			}
+			if err := parseTest(v); err != nil {
+				errs = append(errs, errors.Errorf("invalid annotation value: %s", v))
 			}
 		}
 	}
@@ -126,7 +172,7 @@ type AlertingRuleQueryParams struct {
 	LabelEqualFilters   map[string]string
 	LabelContainFilters map[string]string
 
-	Offset    int
+	PageNum   int
 	Limit     int
 	SortField string
 	SortType  string
@@ -146,7 +192,7 @@ func (q *AlertingRuleQueryParams) Filter(rules []*GettableAlertingRule) []*Getta
 }
 
 func (q *AlertingRuleQueryParams) matches(rule *GettableAlertingRule) bool {
-	if q.NameContainFilter != "" && !strings.Contains(rule.Name, q.NameContainFilter) {
+	if q.NameContainFilter != "" && !containsCaseInsensitive(rule.Name, q.NameContainFilter) {
 		return false
 	}
 	if q.State != "" && q.State != rule.State {
@@ -164,7 +210,7 @@ func (q *AlertingRuleQueryParams) matches(rule *GettableAlertingRule) bool {
 		}
 	}
 	for k, v := range q.LabelContainFilters {
-		if fv, ok := rule.Labels[k]; !ok || !strings.Contains(fv, v) {
+		if fv, ok := rule.Labels[k]; !ok || !containsCaseInsensitive(fv, v) {
 			return false
 		}
 	}
@@ -180,10 +226,22 @@ func AlertingRuleIdCompare(leftId, rightId string) bool {
 }
 
 func (q *AlertingRuleQueryParams) Sort(rules []*GettableAlertingRule) {
-	idCompare := func(left, right *GettableAlertingRule) bool {
+	baseCompare := func(left, right *GettableAlertingRule) bool {
+		var leftUpdateTime, rightUpdateTime string
+		if len(left.Annotations) > 0 {
+			leftUpdateTime = left.Annotations[AnnotationKeyRuleUpdateTime]
+		}
+		if len(right.Annotations) > 0 {
+			rightUpdateTime = right.Annotations[AnnotationKeyRuleUpdateTime]
+		}
+
+		if leftUpdateTime != rightUpdateTime {
+			return leftUpdateTime > rightUpdateTime
+		}
+
 		return AlertingRuleIdCompare(left.Id, right.Id)
 	}
-	var compare = idCompare
+	var compare = baseCompare
 	if q != nil {
 		reverse := q.SortType == "desc"
 		switch q.SortField {
@@ -195,7 +253,7 @@ func (q *AlertingRuleQueryParams) Sort(rules []*GettableAlertingRule) {
 					}
 					return c < 0
 				}
-				return idCompare(left, right)
+				return baseCompare(left, right)
 			}
 		case "lastEvaluation":
 			compare = func(left, right *GettableAlertingRule) bool {
@@ -213,7 +271,7 @@ func (q *AlertingRuleQueryParams) Sort(rules []*GettableAlertingRule) {
 						return left.LastEvaluation.Before(*right.LastEvaluation)
 					}
 				}
-				return idCompare(left, right)
+				return baseCompare(left, right)
 			}
 		case "evaluationTime":
 			compare = func(left, right *GettableAlertingRule) bool {
@@ -223,7 +281,7 @@ func (q *AlertingRuleQueryParams) Sort(rules []*GettableAlertingRule) {
 					}
 					return left.EvaluationDurationSeconds < right.EvaluationDurationSeconds
 				}
-				return idCompare(left, right)
+				return baseCompare(left, right)
 			}
 		}
 	}
@@ -235,7 +293,7 @@ func (q *AlertingRuleQueryParams) Sort(rules []*GettableAlertingRule) {
 func (q *AlertingRuleQueryParams) Sub(rules []*GettableAlertingRule) []*GettableAlertingRule {
 	start, stop := 0, 10
 	if q != nil {
-		start, stop = q.Offset, q.Offset+q.Limit
+		start, stop = (q.PageNum-1)*q.Limit, q.PageNum*q.Limit
 	}
 	total := len(rules)
 	if start < total {
@@ -252,8 +310,8 @@ type AlertQueryParams struct {
 	LabelEqualFilters   map[string]string
 	LabelContainFilters map[string]string
 
-	Offset int
-	Limit  int
+	PageNum int
+	Limit   int
 }
 
 func (q *AlertQueryParams) Filter(alerts []*Alert) []*Alert {
@@ -282,7 +340,7 @@ func (q *AlertQueryParams) matches(alert *Alert) bool {
 		}
 	}
 	for k, v := range q.LabelContainFilters {
-		if fv, ok := alert.Labels[k]; !ok || !strings.Contains(fv, v) {
+		if fv, ok := alert.Labels[k]; !ok || !containsCaseInsensitive(fv, v) {
 			return false
 		}
 	}
@@ -312,7 +370,7 @@ func (q *AlertQueryParams) Sort(alerts []*Alert) {
 func (q *AlertQueryParams) Sub(alerts []*Alert) []*Alert {
 	start, stop := 0, 10
 	if q != nil {
-		start, stop = q.Offset, q.Offset+q.Limit
+		start, stop = (q.PageNum-1)*q.Limit, q.PageNum*q.Limit
 	}
 	total := len(alerts)
 	if start < total {
@@ -333,7 +391,14 @@ func ParseAlertingRuleQueryParams(req *restful.Request) (*AlertingRuleQueryParam
 	q.NameContainFilter = req.QueryParameter("name")
 	q.State = req.QueryParameter("state")
 	q.Health = req.QueryParameter("health")
-	q.Offset, _ = strconv.Atoi(req.QueryParameter("offset"))
+	q.PageNum, err = strconv.Atoi(req.QueryParameter("page"))
+	if err != nil {
+		q.PageNum = 1
+		err = nil
+	}
+	if q.PageNum <= 0 {
+		q.PageNum = 1
+	}
 	q.Limit, err = strconv.Atoi(req.QueryParameter("limit"))
 	if err != nil {
 		q.Limit = 10
@@ -352,7 +417,14 @@ func ParseAlertQueryParams(req *restful.Request) (*AlertQueryParams, error) {
 	)
 
 	q.State = req.QueryParameter("state")
-	q.Offset, _ = strconv.Atoi(req.QueryParameter("offset"))
+	q.PageNum, err = strconv.Atoi(req.QueryParameter("page"))
+	if err != nil {
+		q.PageNum = 1
+		err = nil
+	}
+	if q.PageNum <= 0 {
+		q.PageNum = 1
+	}
 	q.Limit, err = strconv.Atoi(req.QueryParameter("limit"))
 	if err != nil {
 		q.Limit = 10
@@ -376,4 +448,88 @@ func parseLabelFilters(req *restful.Request) (map[string]string, map[string]stri
 		}
 	}
 	return labelEqualFilters, labelContainFilters
+}
+
+const (
+	ErrBadData       ErrorType = "bad_data"
+	ErrDuplicateName ErrorType = "duplicate_name"
+	ErrNotFound      ErrorType = "not_found"
+	ErrServer        ErrorType = "server_error"
+
+	StatusSuccess Status = "success"
+	StatusError   Status = "error"
+
+	ResultCreated Result = "created"
+	ResultUpdated Result = "updated"
+	ResultDeleted Result = "deleted"
+)
+
+type Status string
+
+type ErrorType string
+
+type Result string
+
+type BulkResponse struct {
+	Errors bool                `json:"errors" description:"If true, one or more operations in the bulk request don't complete successfully"`
+	Items  []*BulkItemResponse `json:"items" description:"It contains the result of each operation in the bulk request"`
+}
+
+// MakeBulkResponse tidies the internal items and sets the errors
+func (br *BulkResponse) MakeBulkResponse() *BulkResponse {
+	var (
+		items   []*BulkItemResponse
+		itemMap = make(map[string]*BulkItemResponse)
+	)
+	for i, item := range br.Items {
+		if item.Status == StatusError {
+			br.Errors = true
+		}
+		pitem, ok := itemMap[item.RuleName]
+		if !ok || (pitem.Status == StatusSuccess || item.Status == StatusError) {
+			itemMap[item.RuleName] = br.Items[i]
+		}
+	}
+	for k := range itemMap {
+		item := itemMap[k]
+		if item.Error != nil {
+			item.ErrorStr = item.Error.Error()
+		}
+		items = append(items, itemMap[k])
+	}
+	br.Items = items
+	return br
+}
+
+type BulkItemResponse struct {
+	RuleName  string    `json:"ruleName,omitempty"`
+	Status    Status    `json:"status,omitempty" description:"It may be success or error"`
+	Result    Result    `json:"result,omitempty" description:"It may be created, updated or deleted, and only for successful operations"`
+	ErrorType ErrorType `json:"errorType,omitempty" description:"It may be bad_data, duplicate_name, not_found or server_error, and only for failed operations"`
+	Error     error     `json:"-"`
+	ErrorStr  string    `json:"error,omitempty" description:"It is only returned for failed operations"`
+}
+
+func NewBulkItemSuccessResponse(ruleName string, result Result) *BulkItemResponse {
+	return &BulkItemResponse{
+		RuleName: ruleName,
+		Status:   StatusSuccess,
+		Result:   result,
+	}
+}
+
+func NewBulkItemErrorServerResponse(ruleName string, err error) *BulkItemResponse {
+	return &BulkItemResponse{
+		RuleName:  ruleName,
+		Status:    StatusError,
+		ErrorType: ErrServer,
+		Error:     err,
+	}
+}
+
+// containsCaseInsensitive reports whether substr is case-insensitive within s.
+func containsCaseInsensitive(s, substr string) bool {
+	return strings.Contains(
+		strings.ToLower(s),
+		strings.ToLower(substr))
 }

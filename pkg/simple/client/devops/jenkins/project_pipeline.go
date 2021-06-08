@@ -18,11 +18,14 @@ package jenkins
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/emicklei/go-restful"
 	"k8s.io/klog"
-	devopsv1alpha3 "kubesphere.io/kubesphere/pkg/apis/devops/v1alpha3"
+
+	devopsv1alpha3 "kubesphere.io/api/devops/v1alpha3"
+
 	"kubesphere.io/kubesphere/pkg/simple/client/devops"
-	"net/http"
 )
 
 func (j *Jenkins) CreateProjectPipeline(projectId string, pipeline *devopsv1alpha3.Pipeline) (string, error) {

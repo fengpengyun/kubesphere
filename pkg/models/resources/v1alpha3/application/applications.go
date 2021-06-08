@@ -18,16 +18,18 @@ package application
 
 import (
 	"context"
+	"time"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	"kubesphere.io/kubesphere/pkg/api"
-	"kubesphere.io/kubesphere/pkg/apiserver/query"
-	"kubesphere.io/kubesphere/pkg/models/resources/v1alpha3"
 	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
+
+	"kubesphere.io/kubesphere/pkg/api"
+	"kubesphere.io/kubesphere/pkg/apiserver/query"
+	"kubesphere.io/kubesphere/pkg/models/resources/v1alpha3"
 )
 
 type applicationsGetter struct {
@@ -50,14 +52,14 @@ func (d *applicationsGetter) Get(namespace, name string) (runtime.Object, error)
 
 func (d *applicationsGetter) List(namespace string, query *query.Query) (*api.ListResult, error) {
 	applications := appv1beta1.ApplicationList{}
-	err := d.c.List(context.Background(), &applications, &client.ListOptions{Namespace: namespace})
+	err := d.c.List(context.Background(), &applications, &client.ListOptions{Namespace: namespace, LabelSelector: query.Selector()})
 	if err != nil {
 		klog.Error(err)
 		return nil, err
 	}
 	var result []runtime.Object
-	for _, app := range applications.Items {
-		result = append(result, &app)
+	for i := range applications.Items {
+		result = append(result, &applications.Items[i])
 	}
 
 	return v1alpha3.DefaultList(result, query, d.compare, d.filter), nil

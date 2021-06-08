@@ -25,9 +25,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sinformers "k8s.io/client-go/informers"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/klog"
-	"kubesphere.io/kubesphere/pkg/apis/network/v1alpha1"
+
+	"kubesphere.io/api/network/v1alpha1"
+
 	ksfake "kubesphere.io/kubesphere/pkg/client/clientset/versioned/fake"
 	ksinformers "kubesphere.io/kubesphere/pkg/client/informers/externalversions"
 	"kubesphere.io/kubesphere/pkg/controller/network/utils"
@@ -45,6 +48,10 @@ func TestIPPoolSuit(t *testing.T) {
 	RunSpecs(t, "IPPool Suite")
 }
 
+var (
+	alwaysReady = func() bool { return true }
+)
+
 var _ = Describe("test ippool", func() {
 	pool := &v1alpha1.IPPool{
 		TypeMeta: v1.TypeMeta{},
@@ -60,16 +67,16 @@ var _ = Describe("test ippool", func() {
 
 	ksclient := ksfake.NewSimpleClientset()
 	k8sclinet := k8sfake.NewSimpleClientset()
-	p := ippool.NewProvider(nil, ksclient, k8sclinet, v1alpha1.IPPoolTypeLocal, nil)
-	ipamClient := ipam.NewIPAMClient(ksclient, v1alpha1.VLAN)
-
 	ksInformer := ksinformers.NewSharedInformerFactory(ksclient, 0)
-	ippoolInformer := ksInformer.Network().V1alpha1().IPPools()
-	ipamblockInformer := ksInformer.Network().V1alpha1().IPAMBlocks()
-	c := NewIPPoolController(ippoolInformer, ipamblockInformer, k8sclinet, ksclient, p)
+	k8sInformer := k8sinformers.NewSharedInformerFactory(k8sclinet, 0)
+
+	p := ippool.NewProvider(k8sInformer, ksclient, k8sclinet, v1alpha1.IPPoolTypeLocal, nil)
+	ipamClient := ipam.NewIPAMClient(ksclient, v1alpha1.VLAN)
+	c := NewIPPoolController(ksInformer, k8sInformer, k8sclinet, ksclient, p)
 
 	stopCh := make(chan struct{})
 	go ksInformer.Start(stopCh)
+	go k8sInformer.Start(stopCh)
 	go c.Start(stopCh)
 
 	It("test create ippool", func() {

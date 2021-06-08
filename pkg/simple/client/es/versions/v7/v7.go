@@ -21,10 +21,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/elastic/go-elasticsearch/v7"
-	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"io/ioutil"
 	"time"
+
+	"github.com/elastic/go-elasticsearch/v7"
+	"github.com/elastic/go-elasticsearch/v7/esapi"
 )
 
 type Elastic struct {
@@ -32,9 +33,19 @@ type Elastic struct {
 	index  string
 }
 
-func New(address string, index string) (*Elastic, error) {
-	client, err := elasticsearch.NewClient(elasticsearch.Config{
+func New(address string, basicAuth bool, username, password, index string) (*Elastic, error) {
+	var client *elasticsearch.Client
+	var err error
+
+	if !basicAuth {
+		username = ""
+		password = ""
+	}
+
+	client, err = elasticsearch.NewClient(elasticsearch.Config{
 		Addresses: []string{address},
+		Username:  username,
+		Password:  password,
 	})
 
 	return &Elastic{client: client, index: index}, err

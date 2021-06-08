@@ -17,11 +17,14 @@ limitations under the License.
 package ippool
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	v1 "k8s.io/client-go/informers/core/v1"
+	k8sinformers "k8s.io/client-go/informers"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
-	networkv1alpha1 "kubesphere.io/kubesphere/pkg/apis/network/v1alpha1"
+
+	networkv1alpha1 "kubesphere.io/api/network/v1alpha1"
+
 	kubesphereclient "kubesphere.io/kubesphere/pkg/client/clientset/versioned"
 	"kubesphere.io/kubesphere/pkg/simple/client/k8s"
 	calicoclient "kubesphere.io/kubesphere/pkg/simple/client/network/ippool/calico"
@@ -35,6 +38,7 @@ type Provider interface {
 	UpdateIPPool(pool *networkv1alpha1.IPPool) error
 	GetIPPoolStats(pool *networkv1alpha1.IPPool) (*networkv1alpha1.IPPool, error)
 	SyncStatus(stopCh <-chan struct{}, q workqueue.RateLimitingInterface) error
+	UpdateNamespace(ns *corev1.Namespace, pools []string) error
 	Type() string
 	Default(obj runtime.Object) error
 }
@@ -49,6 +53,10 @@ func (p provider) Type() string {
 }
 
 func (p provider) Default(obj runtime.Object) error {
+	return nil
+}
+
+func (p provider) UpdateNamespace(ns *corev1.Namespace, pools []string) error {
 	return nil
 }
 
@@ -110,7 +118,7 @@ func newProvider(clientset kubesphereclient.Interface) provider {
 	}
 }
 
-func NewProvider(podInformer v1.PodInformer, clientset kubesphereclient.Interface, client clientset.Interface, pt string, k8sOptions *k8s.KubernetesOptions) Provider {
+func NewProvider(k8sInformer k8sinformers.SharedInformerFactory, clientset kubesphereclient.Interface, client clientset.Interface, pt string, k8sOptions *k8s.KubernetesOptions) Provider {
 	var p Provider
 
 	switch pt {
@@ -120,7 +128,7 @@ func NewProvider(podInformer v1.PodInformer, clientset kubesphereclient.Interfac
 			ipamclient:       ipam.NewIPAMClient(clientset, networkv1alpha1.VLAN),
 		}
 	case networkv1alpha1.IPPoolTypeCalico:
-		p = calicoclient.NewProvider(podInformer, clientset, client, k8sOptions)
+		p = calicoclient.NewProvider(k8sInformer, clientset, client, k8sOptions)
 	}
 
 	return p

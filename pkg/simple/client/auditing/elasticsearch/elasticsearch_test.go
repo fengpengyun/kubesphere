@@ -17,14 +17,16 @@ limitations under the License.
 package elasticsearch
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"github.com/stretchr/testify/assert"
-	"kubesphere.io/kubesphere/pkg/simple/client/auditing"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+
+	"kubesphere.io/kubesphere/pkg/simple/client/auditing"
 )
 
 func MockElasticsearchService(pattern string, fakeCode int, fakeResp string) *httptest.Server {
@@ -154,7 +156,7 @@ func TestParseToQueryPart(t *testing.T) {
                                     "filter":[
                                         {
                                             "match_phrase":{
-                                                "ObjectRef.Namespace":"kubesphere-system"
+                                                "ObjectRef.Namespace.keyword":"kubesphere-system"
                                             }
                                         },
                                         {
@@ -172,7 +174,7 @@ func TestParseToQueryPart(t *testing.T) {
                                     "filter":[
                                         {
                                             "match_phrase":{
-                                                "Workspace":"system-workspace"
+                                                "Workspace.keyword":"system-workspace"
                                             }
                                         },
                                         {
@@ -218,7 +220,7 @@ func TestParseToQueryPart(t *testing.T) {
                         "should":[
                             {
                                 "match_phrase":{
-                                    "Verb":"create"
+                                    "Verb.keyword":"create"
                                 }
                             }
                         ],
@@ -230,7 +232,7 @@ func TestParseToQueryPart(t *testing.T) {
                         "should":[
                             {
                                 "match_phrase":{
-                                    "Level":"Metadata"
+                                    "Level.keyword":"Metadata"
                                 }
                             }
                         ],
@@ -328,7 +330,7 @@ func TestParseToQueryPart(t *testing.T) {
                         "should":[
                             {
                                 "match_phrase":{
-                                    "ResponseStatus.status":"Failure"
+                                    "ResponseStatus.status.keyword":"Failure"
                                 }
                             }
                         ],

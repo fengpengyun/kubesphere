@@ -20,16 +20,18 @@ package v1alpha3
 import (
 	"net/http"
 
+	"kubesphere.io/kubesphere/pkg/client/clientset/versioned"
+
 	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful-openapi"
+	restfulspec "github.com/emicklei/go-restful-openapi"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+
 	"kubesphere.io/kubesphere/pkg/apiserver/runtime"
 	"kubesphere.io/kubesphere/pkg/constants"
 	"kubesphere.io/kubesphere/pkg/informers"
 	model "kubesphere.io/kubesphere/pkg/models/monitoring"
 	"kubesphere.io/kubesphere/pkg/simple/client/monitoring"
-	"kubesphere.io/kubesphere/pkg/simple/client/openpitrix"
 )
 
 const (
@@ -39,10 +41,10 @@ const (
 
 var GroupVersion = schema.GroupVersion{Group: groupName, Version: "v1alpha3"}
 
-func AddToContainer(c *restful.Container, k8sClient kubernetes.Interface, monitoringClient monitoring.Interface, factory informers.InformerFactory, opClient openpitrix.Client) error {
+func AddToContainer(c *restful.Container, k8sClient kubernetes.Interface, monitoringClient monitoring.Interface, metricsClient monitoring.Interface, factory informers.InformerFactory, ksClient versioned.Interface) error {
 	ws := runtime.NewWebService(GroupVersion)
 
-	h := newHandler(k8sClient, monitoringClient, factory, opClient)
+	h := NewHandler(k8sClient, monitoringClient, metricsClient, factory, ksClient, nil, nil)
 
 	ws.Route(ws.GET("/kubesphere").
 		To(h.handleKubeSphereMetricsQuery).
@@ -78,6 +80,7 @@ func AddToContainer(c *restful.Container, k8sClient kubernetes.Interface, monito
 		Param(ws.QueryParameter("sort_type", "Sort order. One of asc, desc.").DefaultValue("desc.").DataType("string").Required(false)).
 		Param(ws.QueryParameter("page", "The page number. This field paginates result data of each metric, then returns a specific page. For example, setting **page** to 2 returns the second page. It only applies to sorted metric data.").DataType("integer").Required(false)).
 		Param(ws.QueryParameter("limit", "Page size, the maximum number of results in a single page. Defaults to 5.").DataType("integer").Required(false).DefaultValue("5")).
+		Param(ws.QueryParameter("type", "The query type. This field can be set to 'rank' for node ranking query or '' for others. Defaults to ''.").DataType("string").Required(false).DefaultValue("")).
 		Metadata(restfulspec.KeyOpenAPITags, []string{constants.NodeMetricsTag}).
 		Writes(model.Metrics{}).
 		Returns(http.StatusOK, respOK, model.Metrics{})).

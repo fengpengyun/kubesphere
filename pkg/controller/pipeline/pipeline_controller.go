@@ -19,12 +19,14 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"reflect"
+	"time"
+
 	"github.com/emicklei/go-restful"
-	"hash/fnv"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informer "k8s.io/client-go/informers/core/v1"
@@ -36,19 +38,18 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
-	hashutil "k8s.io/kubernetes/pkg/util/hash"
-	devopsv1alpha3 "kubesphere.io/kubesphere/pkg/apis/devops/v1alpha3"
+
+	devopsv1alpha3 "kubesphere.io/api/devops/v1alpha3"
+
 	kubesphereclient "kubesphere.io/kubesphere/pkg/client/clientset/versioned"
 	devopsinformers "kubesphere.io/kubesphere/pkg/client/informers/externalversions/devops/v1alpha3"
 	devopslisters "kubesphere.io/kubesphere/pkg/client/listers/devops/v1alpha3"
 	"kubesphere.io/kubesphere/pkg/constants"
+	"kubesphere.io/kubesphere/pkg/controller/utils"
 	modelsdevops "kubesphere.io/kubesphere/pkg/models/devops"
 	devopsClient "kubesphere.io/kubesphere/pkg/simple/client/devops"
 	"kubesphere.io/kubesphere/pkg/utils/k8sutil"
 	"kubesphere.io/kubesphere/pkg/utils/sliceutil"
-	"net/http"
-	"reflect"
-	"time"
 )
 
 /**
@@ -106,9 +107,9 @@ func NewController(client clientset.Interface,
 	devopsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: v.enqueuePipeline,
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			old := oldObj.(*devopsv1alpha3.Pipeline)
-			new := newObj.(*devopsv1alpha3.Pipeline)
-			if old.ResourceVersion == new.ResourceVersion {
+			oldPipeline := oldObj.(*devopsv1alpha3.Pipeline)
+			newPipeline := newObj.(*devopsv1alpha3.Pipeline)
+			if oldPipeline.ResourceVersion == newPipeline.ResourceVersion {
 				return
 			}
 			v.enqueuePipeline(newObj)
@@ -239,7 +240,7 @@ func (c *Controller) syncHandler(key string) error {
 
 		//If the sync is successful, return handle
 		if state, ok := copyPipeline.Annotations[devopsv1alpha3.PipelineSyncStatusAnnoKey]; ok && state == modelsdevops.StatusSuccessful {
-			specHash := computeHash(copyPipeline.Spec)
+			specHash := utils.ComputeHash(copyPipeline.Spec)
 			oldHash, _ := copyPipeline.Annotations[devopsv1alpha3.PipelineSpecHash] // don't need to check if it's nil, only compare if they're different
 			if specHash == oldHash {
 				// it was synced successfully, and there's any change with the Pipeline spec, skip this round
@@ -316,12 +317,6 @@ func (c *Controller) syncHandler(key string) error {
 		}
 	}
 	return nil
-}
-
-func computeHash(obj interface{}) string {
-	hasher := fnv.New32a()
-	hashutil.DeepHashObject(hasher, obj)
-	return rand.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
 }
 
 func isDevOpsProjectAdminNamespace(namespace *v1.Namespace) bool {

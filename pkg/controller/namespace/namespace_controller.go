@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"reflect"
+
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,17 +33,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
-	tenantv1alpha1 "kubesphere.io/kubesphere/pkg/apis/tenant/v1alpha1"
-	"kubesphere.io/kubesphere/pkg/constants"
-	controllerutils "kubesphere.io/kubesphere/pkg/controller/utils/controller"
-	"kubesphere.io/kubesphere/pkg/utils/k8sutil"
-	"kubesphere.io/kubesphere/pkg/utils/sliceutil"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+	tenantv1alpha1 "kubesphere.io/api/tenant/v1alpha1"
+
+	"kubesphere.io/kubesphere/pkg/constants"
+	controllerutils "kubesphere.io/kubesphere/pkg/controller/utils/controller"
+	"kubesphere.io/kubesphere/pkg/utils/k8sutil"
+	"kubesphere.io/kubesphere/pkg/utils/sliceutil"
 )
 
 const (
@@ -129,16 +132,27 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	// initialize subresource if created by kubesphere
-	if workspace := namespace.Labels[tenantv1alpha1.WorkspaceLabel]; workspace != "" {
-		if err := r.bindWorkspace(rootCtx, logger, namespace); err != nil {
-			return ctrl.Result{}, err
+	// Bind to workspace if the namespace created by kubesphere
+	_, hasWorkspaceLabel := namespace.Labels[tenantv1alpha1.WorkspaceLabel]
+	// if the namespace doesn't have a label like kubefed.io/managed: "true" (single cluster environment)
+	// or it has a label like kubefed.io/managed: "false"(multi-cluster environment), we set the owner reference filed.
+	// Otherwise, kubefed controller will remove owner reference.
+	kubefedManaged := namespace.Labels[constants.KubefedManagedLabel] == "true"
+	if !kubefedManaged {
+		if hasWorkspaceLabel {
+			if err := r.bindWorkspace(rootCtx, logger, namespace); err != nil {
+				return ctrl.Result{}, err
+			}
+		} else {
+			if err := r.unbindWorkspace(rootCtx, logger, namespace); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
+	}
+	// Initialize roles for devops/project namespaces if created by kubesphere
+	_, hasDevOpsProjectLabel := namespace.Labels[constants.DevOpsProjectLabelKey]
+	if hasDevOpsProjectLabel || hasWorkspaceLabel {
 		if err := r.initRoles(rootCtx, logger, namespace); err != nil {
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.unbindWorkspace(rootCtx, logger, namespace); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -156,6 +170,10 @@ func (r *Reconciler) bindWorkspace(ctx context.Context, logger logr.Logger, name
 		}
 		// skip if workspace not found
 		return client.IgnoreNotFound(err)
+	}
+	// workspace has been deleted
+	if !workspace.ObjectMeta.DeletionTimestamp.IsZero() {
+		return r.unbindWorkspace(ctx, logger, namespace)
 	}
 	// owner reference not match workspace label
 	if !metav1.IsControlledBy(namespace, workspace) {
@@ -175,11 +193,19 @@ func (r *Reconciler) bindWorkspace(ctx context.Context, logger logr.Logger, name
 }
 
 func (r *Reconciler) unbindWorkspace(ctx context.Context, logger logr.Logger, namespace *corev1.Namespace) error {
-	if k8sutil.IsControlledBy(namespace.OwnerReferences, tenantv1alpha1.ResourceKindWorkspace, "") {
-		namespace := namespace.DeepCopy()
-		namespace.OwnerReferences = k8sutil.RemoveWorkspaceOwnerReference(namespace.OwnerReferences)
-		logger.V(4).Info("remove owner reference", "workspace", namespace.Labels[constants.WorkspaceLabelKey])
-		if err := r.Update(ctx, namespace); err != nil {
+	_, hasWorkspaceLabel := namespace.Labels[tenantv1alpha1.WorkspaceLabel]
+	if hasWorkspaceLabel || k8sutil.IsControlledBy(namespace.OwnerReferences, tenantv1alpha1.ResourceKindWorkspace, "") {
+		ns := namespace.DeepCopy()
+
+		wsName := k8sutil.GetWorkspaceOwnerName(ns.OwnerReferences)
+		if hasWorkspaceLabel {
+			wsName = namespace.Labels[tenantv1alpha1.WorkspaceLabel]
+		}
+
+		delete(ns.Labels, constants.WorkspaceLabelKey)
+		ns.OwnerReferences = k8sutil.RemoveWorkspaceOwnerReference(ns.OwnerReferences)
+		logger.V(4).Info("remove owner reference and label", "namespace", ns.Name, "workspace", wsName)
+		if err := r.Update(ctx, ns); err != nil {
 			logger.Error(err, "update owner reference failed")
 			return err
 		}

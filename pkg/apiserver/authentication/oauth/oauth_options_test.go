@@ -18,10 +18,11 @@ package oauth
 
 import (
 	"encoding/json"
-	"github.com/google/go-cmp/cmp"
-	"gopkg.in/yaml.v3"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"gopkg.in/yaml.v3"
 )
 
 func TestDefaultAuthOptions(t *testing.T) {
@@ -49,7 +50,6 @@ func TestDefaultAuthOptions(t *testing.T) {
 }
 
 func TestClientResolveRedirectURL(t *testing.T) {
-
 	options := NewOptions()
 	defaultClient, err := options.OAuthClient("default")
 	if err != nil {

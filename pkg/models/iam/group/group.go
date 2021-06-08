@@ -29,9 +29,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+	tenantv1alpha1 "kubesphere.io/api/tenant/v1alpha1"
+
 	"kubesphere.io/kubesphere/pkg/api"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
-	tenantv1alpha1 "kubesphere.io/kubesphere/pkg/apis/tenant/v1alpha1"
 	"kubesphere.io/kubesphere/pkg/apiserver/query"
 	kubesphere "kubesphere.io/kubesphere/pkg/client/clientset/versioned"
 	"kubesphere.io/kubesphere/pkg/informers"

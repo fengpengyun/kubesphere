@@ -18,6 +18,7 @@ package elasticsearch
 
 import (
 	"fmt"
+
 	"kubesphere.io/kubesphere/pkg/simple/client/es"
 	"kubesphere.io/kubesphere/pkg/simple/client/es/query"
 	"kubesphere.io/kubesphere/pkg/simple/client/events"
@@ -31,7 +32,7 @@ func NewClient(options *events.Options) (events.Client, error) {
 	c := &client{}
 
 	var err error
-	c.c, err = es.NewClient(options.Host, options.IndexPrefix, options.Version)
+	c.c, err = es.NewClient(options.Host, options.BasicAuth, options.Username, options.Password, options.IndexPrefix, options.Version)
 	return c, err
 }
 
@@ -74,9 +75,6 @@ func (c *client) CountOverTime(filter *events.Filter, interval string) (*events.
 	if err != nil {
 		return nil, err
 	}
-	if resp == nil || resp.Aggregations.DateHistogramAggregation == nil {
-		return &events.Histogram{}, nil
-	}
 
 	histo := events.Histogram{Total: c.c.GetTotalHitCount(resp.Total)}
 	for _, bucket := range resp.Buckets {
@@ -97,9 +95,6 @@ func (c *client) StatisticsOnResources(filter *events.Filter) (*events.Statistic
 	resp, err := c.c.Search(b, filter.StartTime, filter.EndTime, false)
 	if err != nil {
 		return nil, err
-	}
-	if resp == nil || resp.Aggregations.CardinalityAggregation == nil {
-		return &events.Statistics{}, nil
 	}
 
 	return &events.Statistics{

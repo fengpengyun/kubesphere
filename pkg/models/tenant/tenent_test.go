@@ -17,6 +17,9 @@ limitations under the License.
 package tenant
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	fakeistio "istio.io/client-go/pkg/clientset/versioned/fake"
 	corev1 "k8s.io/api/core/v1"
@@ -26,17 +29,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/authentication/user"
 	fakek8s "k8s.io/client-go/kubernetes/fake"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+	tenantv1alpha1 "kubesphere.io/api/tenant/v1alpha1"
+	tenantv1alpha2 "kubesphere.io/api/tenant/v1alpha2"
+
 	"kubesphere.io/kubesphere/pkg/api"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
-	tenantv1alpha1 "kubesphere.io/kubesphere/pkg/apis/tenant/v1alpha1"
-	tenantv1alpha2 "kubesphere.io/kubesphere/pkg/apis/tenant/v1alpha2"
 	"kubesphere.io/kubesphere/pkg/apiserver/authorization/rbac"
 	"kubesphere.io/kubesphere/pkg/apiserver/query"
 	fakeks "kubesphere.io/kubesphere/pkg/client/clientset/versioned/fake"
 	"kubesphere.io/kubesphere/pkg/informers"
 	"kubesphere.io/kubesphere/pkg/models/iam/am"
-	"reflect"
-	"testing"
 )
 
 func TestTenantOperator_ListWorkspaces(t *testing.T) {
@@ -541,5 +544,5 @@ func prepare() Interface {
 	amOperator := am.NewOperator(ksClient, k8sClient, fakeInformerFactory)
 	authorizer := rbac.NewRBACAuthorizer(amOperator)
 
-	return New(fakeInformerFactory, k8sClient, ksClient, nil, nil, nil, amOperator, authorizer)
+	return New(fakeInformerFactory, k8sClient, ksClient, nil, nil, nil, amOperator, authorizer, nil, nil)
 }

@@ -1,14 +1,14 @@
 package es
 
 import (
-	"github.com/json-iterator/go"
+	jsoniter "github.com/json-iterator/go"
 	"k8s.io/klog"
 )
 
 type Response struct {
-	ScrollId      string `json:"_scroll_id,omitempty"`
-	Hits          `json:"hits,omitempty"`
-	*Aggregations `json:"aggregations,omitempty"`
+	ScrollId     string `json:"_scroll_id,omitempty"`
+	Hits         `json:"hits,omitempty"`
+	Aggregations `json:"aggregations,omitempty"`
 }
 
 type Hits struct {
@@ -22,8 +22,8 @@ type Hit struct {
 }
 
 type Aggregations struct {
-	*CardinalityAggregation   `json:"cardinality_aggregation,omitempty"`
-	*DateHistogramAggregation `json:"date_histogram_aggregation,omitempty"`
+	CardinalityAggregation   `json:"cardinality_aggregation,omitempty"`
+	DateHistogramAggregation `json:"date_histogram_aggregation,omitempty"`
 }
 
 type CardinalityAggregation struct {

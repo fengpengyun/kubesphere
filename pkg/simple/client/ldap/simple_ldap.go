@@ -18,8 +18,10 @@ package ldap
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+
 	"kubesphere.io/kubesphere/pkg/api"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
 	"kubesphere.io/kubesphere/pkg/apiserver/query"
 )
 

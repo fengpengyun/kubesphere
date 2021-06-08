@@ -17,6 +17,7 @@ limitations under the License.
 package devops
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,8 +32,9 @@ type PipelineList struct {
 
 // GetPipeline & SearchPipelines
 type Pipeline struct {
-	Class string `json:"_class,omitempty" description:"It’s a fully qualified name and is an identifier of the producer of this resource's capability." `
-	Links struct {
+	Annotations map[string]string `json:"annotations,omitempty" description:"Add annotations from crd" `
+	Class       string            `json:"_class,omitempty" description:"It’s a fully qualified name and is an identifier of the producer of this resource's capability." `
+	Links       struct {
 		Self struct {
 			Class string `json:"_class,omitempty"`
 			Href  string `json:"href,omitempty"`
@@ -94,6 +96,17 @@ type Pipeline struct {
 	} `json:"scmSource,omitempty"`
 	TotalNumberOfBranches     int `json:"totalNumberOfBranches,omitempty" description:"total number of branches"`
 	TotalNumberOfPullRequests int `json:"totalNumberOfPullRequests,omitempty" description:"total number of pull requests"`
+}
+
+// UnmarshalPipeline unmarshal data into the Pipeline list
+func UnmarshalPipeline(total int, data []byte) (pipelineList *PipelineList, err error) {
+	pipelineList = &PipelineList{Total: total}
+	pipelineList.Items = make([]Pipeline, total)
+	for i, _ := range pipelineList.Items {
+		pipelineList.Items[i].WeatherScore = 100
+	}
+	err = json.Unmarshal(data, &pipelineList.Items)
+	return
 }
 
 // GetPipeBranchRun & SearchPipelineRuns
@@ -190,6 +203,7 @@ type SCMOrg struct {
 		} `json:"self,omitempty" description:"scm org self info"`
 	} `json:"_links,omitempty" description:"references the reachable path to this resource"`
 	Avatar                      string `json:"avatar,omitempty" description:"the url of organization avatar"`
+	Key                         string `json:"key,omitempty" description:"the key of a Bitbucket organization"`
 	JenkinsOrganizationPipeline bool   `json:"jenkinsOrganizationPipeline,omitempty" description:"weather or not already have jenkins pipeline."`
 	Name                        string `json:"name,omitempty" description:"organization name"`
 }
@@ -503,9 +517,9 @@ type PipelineBranchItem struct {
 	Parameters   []struct {
 		Class                 string `json:"_class,omitempty" description:"It’s a fully qualified name and is an identifier of the producer of this resource's capability."`
 		DefaultParameterValue struct {
-			Class string `json:"_class,omitempty" description:"It’s a fully qualified name and is an identifier of the producer of this resource's capability."`
-			Name  string `json:"name,omitempty" description:"name"`
-			Value string `json:"value,omitempty" description:"value"`
+			Class string      `json:"_class,omitempty" description:"It’s a fully qualified name and is an identifier of the producer of this resource's capability."`
+			Name  string      `json:"name,omitempty" description:"name"`
+			Value interface{} `json:"value,omitempty" description:"value"`
 		} `json:"defaultParameterValue,omitempty"`
 		Description string `json:"description,omitempty" description:"description"`
 		Name        string `json:"name,omitempty" description:"name"`
@@ -535,8 +549,8 @@ type PipelineBranchItem struct {
 // RunPipeline
 type RunPayload struct {
 	Parameters []struct {
-		Name  string `json:"name,omitempty" description:"name"`
-		Value string `json:"value,omitempty" description:"value"`
+		Name  string      `json:"name,omitempty" description:"name"`
+		Value interface{} `json:"value,omitempty" description:"value"`
 	} `json:"parameters,omitempty"`
 }
 
@@ -1012,40 +1026,6 @@ type ReqJenkinsfile struct {
 	Jenkinsfile string `json:"jenkinsfile,omitempty" description:"jenkinsfile"`
 }
 
-type ResJson struct {
-	Status string `json:"status,omitempty" description:"status e.g. ok"`
-	Data   struct {
-		Result string `json:"result,omitempty" description:"result e.g. success"`
-		JSON   struct {
-			Pipeline struct {
-				Stages []interface{} `json:"stages,omitempty" description:"stages"`
-				Agent  struct {
-					Type      string `json:"type,omitempty" description:"type"`
-					Arguments []struct {
-						Key   string `json:"key,omitempty" description:"key"`
-						Value struct {
-							IsLiteral bool   `json:"isLiteral,omitempty" description:"is literal or not"`
-							Value     string `json:"value,omitempty" description:"value"`
-						} `json:"value,omitempty"`
-					} `json:"arguments,omitempty"`
-				} `json:"agent,omitempty"`
-				Parameters struct {
-					Parameters []struct {
-						Name      string `json:"name,omitempty" description:"name"`
-						Arguments []struct {
-							Key   string `json:"key,omitempty" description:"key"`
-							Value struct {
-								IsLiteral bool   `json:"isLiteral,omitempty" description:"is literal or not"`
-								Value     string `json:"value,omitempty" description:"value"`
-							} `json:"value,omitempty"`
-						} `json:"arguments,omitempty"`
-					} `json:"parameters,omitempty"`
-				} `json:"parameters,omitempty"`
-			} `json:"pipeline,omitempty"`
-		} `json:"json,omitempty"`
-	} `json:"data,omitempty"`
-}
-
 type NodesDetail struct {
 	Class string `json:"_class,omitempty" description:"It’s a fully qualified name and is an identifier of the producer of this resource's capability."`
 	Links struct {
@@ -1122,14 +1102,10 @@ func (i *Input) GetSubmitters() (submitters []string) {
 func (i *Input) Approvable(identify string) (ok bool) {
 	submitters := i.GetSubmitters()
 
-	// it means anyone can approve this if there's no specific one
-	if len(submitters) == 0 {
-		ok = true
-	} else {
-		for _, submitter := range submitters {
-			if submitter == identify {
-				ok = true
-			}
+	for _, submitter := range submitters {
+		if submitter == identify {
+			ok = true
+			break
 		}
 	}
 	return
@@ -1193,5 +1169,5 @@ type PipelineOperator interface {
 	CheckScriptCompile(projectName, pipelineName string, httpParameters *HttpParameters) (*CheckScript, error)
 	CheckCron(projectName string, httpParameters *HttpParameters) (*CheckCronRes, error)
 	ToJenkinsfile(httpParameters *HttpParameters) (*ResJenkinsfile, error)
-	ToJson(httpParameters *HttpParameters) (*ResJson, error)
+	ToJson(httpParameters *HttpParameters) (map[string]interface{}, error)
 }

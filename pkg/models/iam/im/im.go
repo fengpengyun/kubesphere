@@ -18,10 +18,13 @@ package im
 import (
 	"context"
 	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+
 	"kubesphere.io/kubesphere/pkg/api"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
 	authoptions "kubesphere.io/kubesphere/pkg/apiserver/authentication/options"
 	"kubesphere.io/kubesphere/pkg/apiserver/query"
 	kubesphere "kubesphere.io/kubesphere/pkg/client/clientset/versioned"
@@ -64,12 +67,10 @@ func (im *imOperator) UpdateUser(new *iamv1alpha2.User) (*iamv1alpha2.User, erro
 		klog.Error(err)
 		return nil, err
 	}
-	if old.Annotations == nil {
-		old.Annotations = make(map[string]string, 0)
-	}
-	// keep encrypted password
+	// keep encrypted password and user status
 	new.Spec.EncryptedPassword = old.Spec.EncryptedPassword
-	updated, err := im.ksClient.IamV1alpha2().Users().Update(context.Background(), old, metav1.UpdateOptions{})
+	new.Status = old.Status
+	updated, err := im.ksClient.IamV1alpha2().Users().Update(context.Background(), new, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Error(err)
 		return nil, err

@@ -20,8 +20,11 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/klog"
+	runtimecache "sigs.k8s.io/controller-runtime/pkg/cache"
+
 	"kubesphere.io/kubesphere/pkg/apis"
 	"kubesphere.io/kubesphere/pkg/apiserver"
 	apiserverconfig "kubesphere.io/kubesphere/pkg/apiserver/config"
@@ -31,19 +34,19 @@ import (
 	"kubesphere.io/kubesphere/pkg/simple/client/alerting"
 	auditingclient "kubesphere.io/kubesphere/pkg/simple/client/auditing/elasticsearch"
 	"kubesphere.io/kubesphere/pkg/simple/client/cache"
-	runtimecache "sigs.k8s.io/controller-runtime/pkg/cache"
+
+	"net/http"
+	"strings"
 
 	"kubesphere.io/kubesphere/pkg/simple/client/devops/jenkins"
 	eventsclient "kubesphere.io/kubesphere/pkg/simple/client/events/elasticsearch"
 	"kubesphere.io/kubesphere/pkg/simple/client/k8s"
 	esclient "kubesphere.io/kubesphere/pkg/simple/client/logging/elasticsearch"
+	"kubesphere.io/kubesphere/pkg/simple/client/monitoring/metricsserver"
 	"kubesphere.io/kubesphere/pkg/simple/client/monitoring/prometheus"
-	"kubesphere.io/kubesphere/pkg/simple/client/openpitrix"
 	"kubesphere.io/kubesphere/pkg/simple/client/s3"
 	fakes3 "kubesphere.io/kubesphere/pkg/simple/client/s3/fake"
 	"kubesphere.io/kubesphere/pkg/simple/client/sonarqube"
-	"net/http"
-	"strings"
 )
 
 type ServerRunOptions struct {
@@ -124,6 +127,8 @@ func (s *ServerRunOptions) NewAPIServer(stopCh <-chan struct{}) (*apiserver.APIS
 		apiServer.MonitoringClient = monitoringClient
 	}
 
+	apiServer.MetricsClient = metricsserver.NewMetricsClient(kubernetesClient.Kubernetes(), s.KubernetesOptions)
+
 	if s.LoggingOptions.Host != "" {
 		loggingClient, err := esclient.NewClient(s.LoggingOptions)
 		if err != nil {
@@ -193,14 +198,6 @@ func (s *ServerRunOptions) NewAPIServer(stopCh <-chan struct{}) (*apiserver.APIS
 		apiServer.AuditingClient = auditingClient
 	}
 
-	if s.OpenPitrixOptions != nil && !s.OpenPitrixOptions.IsEmpty() {
-		opClient, err := openpitrix.NewClient(s.OpenPitrixOptions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to openpitrix, please check openpitrix status, error: %v", err)
-		}
-		apiServer.OpenpitrixClient = opClient
-	}
-
 	if s.AlertingOptions != nil && (s.AlertingOptions.PrometheusEndpoint != "" || s.AlertingOptions.ThanosRulerEndpoint != "") {
 		alertingClient, err := alerting.NewRuleClient(s.AlertingOptions)
 		if err != nil {
@@ -218,7 +215,11 @@ func (s *ServerRunOptions) NewAPIServer(stopCh <-chan struct{}) (*apiserver.APIS
 		if err != nil {
 			return nil, err
 		}
-		server.TLSConfig.Certificates = []tls.Certificate{certificate}
+
+		server.TLSConfig = &tls.Config{
+			Certificates: []tls.Certificate{certificate},
+		}
+		server.Addr = fmt.Sprintf(":%d", s.GenericServerRunOptions.SecurePort)
 	}
 
 	sch := scheme.Scheme

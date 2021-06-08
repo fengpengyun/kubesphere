@@ -20,31 +20,33 @@ KubeSphere Roadmap demonstrates a list of open source product development plans 
 ### IAM:
 
 - [x] Add account confirmation process, solve problems caused by special characters in username.[#2953](https://github.com/kubesphere/kubesphere/issues/2953)
-- [ ] Support [CAS](https://apereo.github.io/cas/5.0.x/protocol/CAS-Protocol-Specification.html) identity provider.[#3047](https://github.com/kubesphere/kubesphere/issues/3047)
-- [ ] Support [OIDC](https://openid.net/specs/openid-connect-core-1_0.html) identity provider.[#2941](https://github.com/kubesphere/kubesphere/issues/2941)
+- [x] Support [CAS](https://apereo.github.io/cas/5.0.x/protocol/CAS-Protocol-Specification.html) identity provider.[#3047](https://github.com/kubesphere/kubesphere/issues/3047)
+- [x] Support [OIDC](https://openid.net/specs/openid-connect-core-1_0.html) identity provider.[#2941](https://github.com/kubesphere/kubesphere/issues/2941)
 - [x] Support IDaaS(Alibaba Cloud Identity as a Service) identity provider.[#2997](https://github.com/kubesphere/kubesphere/pull/2997)
 - [x] Improve LDAP identity provider, support LDAPS and search filter.[#2970](https://github.com/kubesphere/kubesphere/issues/2970)
 - [x] Improve identity provider plugin, simplify identity provider configuration.[#2970](https://github.com/kubesphere/kubesphere/issues/2970)
-- [ ] Limit login record maximum entries.[#3191](https://github.com/kubesphere/kubesphere/issues/3191)
-- [ ] Service account management, allows to assign role to Service Account [#3211](https://github.com/kubesphere/kubesphere/issues/3211)
+- [x] Limit login record maximum entries.[#3191](https://github.com/kubesphere/kubesphere/issues/3191)
+- [x] Service account management, allows to assign role to Service Account [#3211](https://github.com/kubesphere/kubesphere/issues/3211)
 
 ### Multitenancy:
 
 - [ ] Support transfer namespace to another workspace.[#3028](https://github.com/kubesphere/kubesphere/issues/3028)
 - [x] Add user group, now users can be assigned to a group and invite a group to a workspace or a project.[#2940](https://github.com/kubesphere/kubesphere/issues/2940)
-- [ ] Add resource quota to a workspace. The resource quota is the same with Kubernetes[ResourceQuota](https://kubernetes.io/docs/concepts/policy/resource-quotas/), providesconstraints that limit aggregate resource consumption by all namespaces within.[  ](https://kubernetes.io/docs/concepts/policy/resource-quotas/)[#2939](https://github.com/kubesphere/kubesphere/issues/2939)
-- [ ] Add choose of whether to cascade delete related resources when deleting workspace.[#3192](https://github.com/kubesphere/kubesphere/issues/3192)
+- [x] Add resource quota to a workspace. The resource quota is the same with Kubernetes[ResourceQuota](https://kubernetes.io/docs/concepts/policy/resource-quotas/), providesconstraints that limit aggregate resource consumption by all namespaces within.[  ](https://kubernetes.io/docs/concepts/policy/resource-quotas/)[#2939](https://github.com/kubesphere/kubesphere/issues/2939)
+- [x] Add choose of whether to cascade delete related resources when deleting workspace.[#3192](https://github.com/kubesphere/kubesphere/issues/3192)
 
 ### DevOps:
 
-- [x] Support Gitlab with Kubesphere multi-branch pipeline. [#3100](https://github.com/kubesphere/kubesphere/issues/3100)
+- [x] Support Gitlab with KubeSphere multi-branch pipeline. [#3100](https://github.com/kubesphere/kubesphere/issues/3100)
 - [x] Run multiple DevOps pipelines at the same time instead of just one.[#1811](https://github.com/kubesphere/kubesphere/issues/1811)
-- [x] Clone pipeline. Users now can create exactly same pipeline from an existing one.[#3053](https://github.com/kubesphere/kubesphere/issues/3053)
+- [x] Create a Pipeline from an existing one. Users now can create exactly same pipeline from an existing one.[#3053](https://github.com/kubesphere/kubesphere/issues/3053)
 - [x] Add approval control for pipelines. [#2483](https://github.com/kubesphere/kubesphere/issues/2483) [#3006](https://github.com/kubesphere/kubesphere/issues/3006)
-- [ ] Add and display the status of the pipeline on the front page. [#3007](https://github.com/kubesphere/kubesphere/issues/3007)
+- [x] Add and display the status of the pipeline on the front page. [#3007](https://github.com/kubesphere/kubesphere/issues/3007)
 - [x] Support tag trigger pipeline. [#3051](https://github.com/kubesphere/kubesphere/issues/3051)
+- [x] Using human-readable error message for pipeline cron text. [#2919](https://github.com/kubesphere/kubesphere/issues/2919)
 - [x] Interactive creation pipeline. [#1283](https://github.com/kubesphere/console/issues/1283)
 - [x] Add S2I webhook support. [#6](https://github.com/kubesphere/s2ioperator/issues/6)
+- [x] Using human-readable error message for S2I. [#140](https://github.com/kubesphere/s2ioperator/issues/140)
 
 ### microservice
 
@@ -55,13 +57,13 @@ KubeSphere Roadmap demonstrates a list of open source product development plans 
 
 ### KubeEdge Integration [#3070](https://github.com/kubesphere/kubesphere/issues/3070)
 
-- [ ] KubeEdge cloud components setup.
-- [ ] KubeEdge edge nodes setup.
+- [x] KubeEdge cloud components setup.
+- [x] KubeEdge edge nodes setup.
 - [x] Edge nodes logging and metrics support.
 - [x] Automatic network configuration on edge node joining/leaving.
-- [ ] Automatic taint edge node on joining.
-- [ ] Cloud workloads (such as daemonset) with wide tolerations should not be scheduled to edge node by adding a node selector.
-- [ ] Scheduling workloads to edge nodes.
+- [x] Automatic taint edge node on joining.
+- [x] Cloud workloads (such as daemonset) with wide tolerations should not be scheduled to edge node by adding a node selector.
+- [x] Scheduling workloads to edge nodes.
 
 ### Observability
 
@@ -71,42 +73,48 @@ KubeSphere Roadmap demonstrates a list of open source product development plans 
 
 - [x] Configure ServiceMonitor via UI. [#1031](https://github.com/kubesphere/console/pull/1301) 
 - [x] PromQL auto-completion and syntax highlighting. [#1307](https://github.com/kubesphere/console/pull/1307)
-- [ ] Support cluster-level custom monitoring. [#3193](https://github.com/kubesphere/kubesphere/pull/3193)
-- [ ] Import dashboards from Grafana templates.
+- [x] Support cluster-level custom monitoring. [#3193](https://github.com/kubesphere/kubesphere/pull/3193)
+- [x] Tools to convert Grafana dashboard to KubeSphere Dashboard [#9](https://github.com/kubesphere/monitoring-dashboard/pull/9)
 
 #### Custom Alerting [#3065](https://github.com/kubesphere/kubesphere/issues/3065)
 
-- [ ] Prometheus alert rule management. [#3181](https://github.com/kubesphere/kubesphere/pull/3181)
-- [ ] Alert rule tenant control: global/namespace level alert rules. [#3181](https://github.com/kubesphere/kubesphere/pull/3181)
-- [ ] List alerts for a specific alert rule. [#3181](https://github.com/kubesphere/kubesphere/pull/3181)
+- [x] Prometheus alert rule management. [#3181](https://github.com/kubesphere/kubesphere/pull/3181)
+- [x] Alert rule tenant control: global/namespace level alert rules. [#3181](https://github.com/kubesphere/kubesphere/pull/3181)
+- [x] List alerts for a specific alert rule. [#3181](https://github.com/kubesphere/kubesphere/pull/3181)
 
 #### Multi-tenant Notification support including Email/DingTalk/Slack/Wechat works/Webhook [#3066](https://github.com/kubesphere/kubesphere/issues/3066)
 
-- [ ] More notification channels including Email, DingTalk, Slack, WeChat works, Webhook
+- [x] More notification channels including Email, DingTalk, Slack, WeCom, Webhook
 - [ ] Multi-tenant control of notification
 
 #### Logging
 
-- [x] Support collecting kubelet/docker/containerd logs. [38](https://github.com/kubesphere/fluentbit-operator/pull/38)
-- [x] Support output logs to Loki. [#39](https://github.com/kubesphere/fluentbit-operator/pull/39)
+- [x] Support output logs to [Loki](https://github.com/kubesphere/fluentbit-operator/blob/master/docs/plugins/output/loki.md). [#39](https://github.com/kubesphere/fluentbit-operator/pull/39)
+- [x] Support collecting kubelet/docker/containerd logs. [#38](https://github.com/kubesphere/fluentbit-operator/pull/38)
+- [x] Support collecting [auditd](https://github.com/kubesphere/fluentbit-operator#auditd) log. [#45](https://github.com/kubesphere/fluentbit-operator/pull/45)
 - [ ] Support containerd log format
 
 ### Application Lifecycle Management (OpenPitrix)
 
-- [ ] Refactoring OpenPitrix with CRD, while fix bugs caused by legacy architecture [#3036](https://github.com/kubesphere/kubesphere/issues/3036) [#3001](https://github.com/kubesphere/kubesphere/issues/3001) [#2995](https://github.com/kubesphere/kubesphere/issues/2995) [#2981](https://github.com/kubesphere/kubesphere/issues/2981) [#2954](https://github.com/kubesphere/kubesphere/issues/2954) [#2951](https://github.com/kubesphere/kubesphere/issues/2951) [#2783](https://github.com/kubesphere/kubesphere/issues/2783) [#2713](https://github.com/kubesphere/kubesphere/issues/2713) [#2700](https://github.com/kubesphere/kubesphere/issues/2700) [#1903](https://github.com/kubesphere/kubesphere/issues/1903) 
-- [ ] Support global repo [#1598](https://github.com/kubesphere/kubesphere/issues/1598)
+- [x] Refactoring OpenPitrix with CRD, while fix bugs caused by legacy architecture [#3036](https://github.com/kubesphere/kubesphere/issues/3036) [#3001](https://github.com/kubesphere/kubesphere/issues/3001) [#2995](https://github.com/kubesphere/kubesphere/issues/2995) [#2981](https://github.com/kubesphere/kubesphere/issues/2981) [#2954](https://github.com/kubesphere/kubesphere/issues/2954) [#2951](https://github.com/kubesphere/kubesphere/issues/2951) [#2783](https://github.com/kubesphere/kubesphere/issues/2783) [#2713](https://github.com/kubesphere/kubesphere/issues/2713) [#2700](https://github.com/kubesphere/kubesphere/issues/2700) [#1903](https://github.com/kubesphere/kubesphere/issues/1903) 
 
 ### Network
 
-- [ ] IPPool for Calico and VMs [#3057](https://github.com/kubesphere/kubesphere/issues/3057)
-- [ ] Support for deployment using static IPs [#3058](https://github.com/kubesphere/kubesphere/issues/3058)
-- [ ] Support for ks-installer with porter as a system component [#3059](https://github.com/kubesphere/kubesphere/issues/3059)
-- [ ] Support for defining porter-related configuration items in the UI [#3060](https://github.com/kubesphere/kubesphere/issues/3060)
-- [ ] Support network visualization [#3061](https://github.com/kubesphere/kubesphere/issues/3061) [#583](https://github.com/kubesphere/kubesphere/issues/583)
+- [x] IPPool for Calico and VMs [#3057](https://github.com/kubesphere/kubesphere/issues/3057)
+- [x] Support for deployment using static IPs [#3058](https://github.com/kubesphere/kubesphere/issues/3058)
+- [x] Support network visualization [#3061](https://github.com/kubesphere/kubesphere/issues/3061) [#583](https://github.com/kubesphere/kubesphere/issues/583)
 
 ### Metering
 
-- [ ] Support for viewing resource consumption at the cluster, workspace, and application template levels [#3062](https://github.com/kubesphere/kubesphere/issues/3062)
+- [x] Support for viewing resource consumption at the cluster, workspace, and application template levels [#3062](https://github.com/kubesphere/kubesphere/issues/3062)
+
+### MultiCluster:
+
+- [x] Validate member cluster configuration if the member cluster config(e.g. jwtSecret) is not same as host cluster, which can reduce the complexity of joining clusters. [#3232](https://github.com/kubesphere/kubesphere/issues/3232)
+- [x] Support configuring cluster controller resync period, some users need to update the cluster component more quickly. [#3213](https://github.com/kubesphere/kubesphere/issues/3213)
+- [x] Lightweight member cluster installation, support running kubepshere without redis and ldap and so on. [#3056](https://github.com/kubesphere/kubesphere/issues/3056)
+- [x] Refactor cluster controller(it should updates the cluster.staus field instead of the tower server when using proxy connection).  [#3234](https://github.com/kubesphere/kubesphere/issues/3234)
+- [ ] Support the tower server and agent running highly available(server with leader election option and running more than one agent). [#31](https://github.com/kubesphere/tower/issues/31)
 
 ## **Upgrade:**
 
@@ -118,23 +126,15 @@ KubeSphere Roadmap demonstrates a list of open source product development plans 
 ### DevOps:
 
 - [x] Upgrade Jenkins Version to 2.249.1. [#2618](https://github.com/kubesphere/kubesphere/issues/2618)
-- [x] Using Jenkins distribution solution to deploy Jenkins, [#2182](https://github.com/kubesphere/kubesphere/issues/2182)
-- [x] Using human-readable error message for pipeline cron text , [#2919](https://github.com/kubesphere/kubesphere/issues/2919)
-- [ ] Using human-readable error message for S2I, [#140](https://github.com/kubesphere/s2ioperator/issues/140)
+- [x] Using Jenkins distribution solution to deploy Jenkins. [#2182](https://github.com/kubesphere/kubesphere/issues/2182)
 
-### MultiCluster:
-
-- [x] Validate member cluster configuration if the member cluster config(e.g. jwtSecret) is not same as host cluster, which can reduce the complexity of joining clusters. [#3232](https://github.com/kubesphere/kubesphere/issues/3232)
-- [ ] Support configuring cluster controller resync period, some users need to update the cluster component more quickly. [#3213](https://github.com/kubesphere/kubesphere/issues/3213)
-- [x] Lightweight member cluster installation, support running kubepshere without redis and ldap and so on. [#3056](https://github.com/kubesphere/kubesphere/issues/3056)
-- [ ] The cluster controller updates the cluster.staus field instead of the tower server when using proxy connection.  [#3234](https://github.com/kubesphere/kubesphere/issues/3234)
-- [ ] Support the tower server and agent running highly available(server with leader election option and running more than one agent). [#31](https://github.com/kubesphere/tower/issues/31)
-- [ ] Support adding member clusters for an existing project(ns), wich can be helpful when there are new clusters joined. [#3246](https://github.com/kubesphere/kubesphere/issues/3246)
 ### Observability
 
-- [x] Upgrade Notification Manager to v0.7.0+ [Releases](https://github.com/kubesphere/notification-manager/releases)
-- [x] Upgrade FluentBit Operator to v0.3.0+ [Releases](https://github.com/kubesphere/fluentbit-operator/releases)
-- [ ] Upgrade FluentBit to v1.6.9+
+- [x] Upgrade Prometheus to v2.26.0
+- [x] Upgrade kube-state-metrics to v1.9.7
+- [x] Upgrade Notification Manager to v1.0.0 [Releases](https://github.com/kubesphere/notification-manager/releases)
+- [x] Upgrade FluentBit Operator to v0.5.0 [Releases](https://github.com/kubesphere/fluentbit-operator/releases)
+- [x] Upgrade FluentBit to v1.6.9
 
 ## **BugFix:**
 
@@ -153,6 +153,7 @@ KubeSphere Roadmap demonstrates a list of open source product development plans 
 - [x] Fix multi-cluster-status-condition. [#3135](https://github.com/kubesphere/kubesphere/issues/3135)
 - [x] Fix edge cluster can't join to the host cluster. [#3198](https://github.com/kubesphere/kubesphere/issues/3198)
 - [x] Fix can not rollout restart tower agent. [#29](https://github.com/kubesphere/tower/issues/29)
+- [x] Fix failed calling webhook due to certificate relies on legacy Common Name field. [#2928](https://github.com/kubesphere/kubesphere/issues/2928)
 
 ### DevOps:
 
@@ -168,12 +169,12 @@ KubeSphere Roadmap demonstrates a list of open source product development plans 
 
 ## DevOps
 
-- [ ] Create / Edit Pipeline Process Optimization.
-- [ ] S2I/B2I supports webhook.
-- [ ] Image registry optimization.
-- [ ] Pipeline support integration with JIRA.
-- [ ] Pipeline integrates the notification of KubeSphere.
-- [ ] Pipeline integrates KubeSphere custom monitoring.
+- [x] Create / Edit Pipeline Process Optimization.
+- [x] S2I/B2I supports webhook.
+- [x] Image registry optimization.
+- [x] Pipeline support integration with JIRA.
+- [x] Pipeline integrates the notification of KubeSphere.
+- [x] Pipeline integrates KubeSphere custom monitoring.
 
 ## Observability
 

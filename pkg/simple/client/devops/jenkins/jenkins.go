@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"k8s.io/klog"
-	"kubesphere.io/kubesphere/pkg/simple/client/devops"
 	"log"
 	"net/http"
 	"net/url"
@@ -30,6 +28,10 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"k8s.io/klog"
+
+	"kubesphere.io/kubesphere/pkg/simple/client/devops"
 )
 
 // Basic Authentication
@@ -872,7 +874,7 @@ func (j *Jenkins) ToJenkinsfile(httpParameters *devops.HttpParameters) (*devops.
 	return res, err
 }
 
-func (j *Jenkins) ToJson(httpParameters *devops.HttpParameters) (*devops.ResJson, error) {
+func (j *Jenkins) ToJson(httpParameters *devops.HttpParameters) (map[string]interface{}, error) {
 	PipelineOjb := &Pipeline{
 		HttpParameters: httpParameters,
 		Jenkins:        j,

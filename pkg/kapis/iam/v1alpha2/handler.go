@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	authuser "k8s.io/apiserver/pkg/authentication/user"
+
 	"kubesphere.io/kubesphere/pkg/apiserver/request"
 	"kubesphere.io/kubesphere/pkg/models/auth"
 
@@ -28,8 +29,10 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+
 	"kubesphere.io/kubesphere/pkg/api"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
 	"kubesphere.io/kubesphere/pkg/apiserver/authorization/authorizer"
 	"kubesphere.io/kubesphere/pkg/apiserver/query"
 	apirequest "kubesphere.io/kubesphere/pkg/apiserver/request"
@@ -544,7 +547,6 @@ func (h *iamHandler) UpdateUser(request *restful.Request, response *restful.Resp
 	var user iamv1alpha2.User
 
 	err := request.ReadEntity(&user)
-
 	if err != nil {
 		api.HandleBadRequest(response, request, err)
 		return
@@ -566,7 +568,6 @@ func (h *iamHandler) UpdateUser(request *restful.Request, response *restful.Resp
 	}
 
 	operator, ok := apirequest.UserFrom(request.Request.Context())
-
 	if globalRole != "" && ok {
 		err = h.updateGlobalRoleBinding(operator, updated, globalRole)
 		if err != nil {

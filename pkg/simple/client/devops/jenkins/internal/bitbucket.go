@@ -1,12 +1,13 @@
 package internal
 
 import (
-	"github.com/beevik/etree"
-	"k8s.io/klog"
 	"strconv"
 	"strings"
 
-	devopsv1alpha3 "kubesphere.io/kubesphere/pkg/apis/devops/v1alpha3"
+	"github.com/beevik/etree"
+	"k8s.io/klog"
+
+	devopsv1alpha3 "kubesphere.io/api/devops/v1alpha3"
 )
 
 func AppendBitbucketServerSourceToEtree(source *etree.Element, gitSource *devopsv1alpha3.BitbucketServerSource) {

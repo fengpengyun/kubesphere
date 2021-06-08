@@ -17,15 +17,18 @@ limitations under the License.
 package workspace
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	tenantv1alpha1 "kubesphere.io/api/tenant/v1alpha1"
+
 	"kubesphere.io/kubesphere/pkg/api"
-	tenantv1alpha1 "kubesphere.io/kubesphere/pkg/apis/tenant/v1alpha1"
 	"kubesphere.io/kubesphere/pkg/apiserver/query"
 	"kubesphere.io/kubesphere/pkg/client/clientset/versioned/fake"
 	informers "kubesphere.io/kubesphere/pkg/client/informers/externalversions"
 	"kubesphere.io/kubesphere/pkg/models/resources/v1alpha3"
-	"testing"
 )
 
 func TestListWorkspaces(t *testing.T) {

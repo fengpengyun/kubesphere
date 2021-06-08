@@ -19,14 +19,17 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
+	"time"
+
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/klog"
+
 	"kubesphere.io/kubesphere/pkg/apiserver/authentication/oauth"
 	authoptions "kubesphere.io/kubesphere/pkg/apiserver/authentication/options"
 	"kubesphere.io/kubesphere/pkg/apiserver/authentication/token"
 	"kubesphere.io/kubesphere/pkg/simple/client/cache"
-	"time"
 )
 
 type TokenManagementInterface interface {
@@ -34,6 +37,8 @@ type TokenManagementInterface interface {
 	Verify(token string) (user.Info, error)
 	// IssueTo issues a token a User, return error if issuing process failed
 	IssueTo(user user.Info) (*oauth.Token, error)
+	// RevokeAllUserTokens revoke all user tokens
+	RevokeAllUserTokens(username string) error
 }
 
 type tokenOperator struct {
@@ -54,7 +59,6 @@ func NewTokenOperator(cache cache.Interface, options *authoptions.Authentication
 func (t tokenOperator) Verify(tokenStr string) (user.Info, error) {
 	authenticated, tokenType, err := t.issuer.Verify(tokenStr)
 	if err != nil {
-		klog.Error(err)
 		return nil, err
 	}
 	if t.options.OAuthOptions.AccessTokenMaxAge == 0 ||
@@ -62,7 +66,6 @@ func (t tokenOperator) Verify(tokenStr string) (user.Info, error) {
 		return authenticated, nil
 	}
 	if err := t.tokenCacheValidate(authenticated.GetName(), tokenStr); err != nil {
-		klog.Error(err)
 		return nil, err
 	}
 	return authenticated, nil
@@ -92,7 +95,7 @@ func (t tokenOperator) IssueTo(user user.Info) (*oauth.Token, error) {
 	}
 
 	if !t.options.MultipleLogin {
-		if err = t.revokeAllUserTokens(user.GetName()); err != nil {
+		if err = t.RevokeAllUserTokens(user.GetName()); err != nil {
 			klog.Error(err)
 			return nil, err
 		}
@@ -112,7 +115,7 @@ func (t tokenOperator) IssueTo(user user.Info) (*oauth.Token, error) {
 	return result, nil
 }
 
-func (t tokenOperator) revokeAllUserTokens(username string) error {
+func (t tokenOperator) RevokeAllUserTokens(username string) error {
 	pattern := fmt.Sprintf("kubesphere:user:%s:token:*", username)
 	if keys, err := t.cache.Keys(pattern); err != nil {
 		klog.Error(err)
@@ -131,7 +134,9 @@ func (t tokenOperator) tokenCacheValidate(username, token string) error {
 	if exist, err := t.cache.Exists(key); err != nil {
 		return err
 	} else if !exist {
-		return fmt.Errorf("token not found in cache")
+		err = errors.New("token not found in cache")
+		klog.V(4).Info(fmt.Errorf("%s: %s", err, token))
+		return err
 	}
 	return nil
 }

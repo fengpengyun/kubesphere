@@ -23,8 +23,10 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+
+	"kubesphere.io/api/devops/v1alpha3"
+
 	"kubesphere.io/kubesphere/pkg/api"
-	"kubesphere.io/kubesphere/pkg/apis/devops/v1alpha3"
 	"kubesphere.io/kubesphere/pkg/apiserver/query"
 	kubesphere "kubesphere.io/kubesphere/pkg/client/clientset/versioned"
 	"kubesphere.io/kubesphere/pkg/client/informers/externalversions"
@@ -181,10 +183,10 @@ func (h *devopsHandler) GetPipeline(request *restful.Request, response *restful.
 }
 
 func (h *devopsHandler) ListPipeline(request *restful.Request, response *restful.Response) {
-	devops := request.PathParameter("devops")
+	devopsProject := request.PathParameter("devops")
 	limit, offset := params.ParsePaging(request)
 
-	objs, err := h.devops.ListPipelineObj(devops, nil, limit, offset)
+	objs, err := h.devops.ListPipelineObj(devopsProject, nil, nil, limit, offset)
 	if err != nil {
 		klog.Error(err)
 		if errors.IsNotFound(err) {

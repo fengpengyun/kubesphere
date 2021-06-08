@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"kubesphere.io/kubesphere/pkg/simple/client/alerting"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -15,7 +14,9 @@ import (
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/prometheus/prometheus/rules"
 	"k8s.io/klog"
+
 	"kubesphere.io/kubesphere/pkg/api/alerting/v2alpha1"
+	"kubesphere.io/kubesphere/pkg/simple/client/alerting"
 )
 
 const (
@@ -25,6 +26,14 @@ const (
 	LabelKeyInternalRuleName     = "__rule_name__"
 	LabelKeyInternalRuleQuery    = "__rule_query__"
 	LabelKeyInternalRuleDuration = "__rule_duration__"
+
+	LabelKeyThanosRulerReplica = "thanos_ruler_replica"
+	LabelKeyPrometheusReplica  = "prometheus_replica"
+
+	LabelKeyRuleId = "rule_id"
+
+	LabelKeyAlertType   = "alerttype"
+	LabelValueAlertType = "metric"
 )
 
 func FormatExpr(expr string) (string, error) {
@@ -82,6 +91,9 @@ func GenResourceRuleIdIgnoreFormat(group string, rule *promresourcesv1.Rule) str
 
 	lbls := make(map[string]string)
 	for k, v := range rule.Labels {
+		if k == LabelKeyRuleId {
+			continue
+		}
 		lbls[k] = v
 	}
 	lbls[LabelKeyInternalRuleGroup] = group
@@ -100,21 +112,29 @@ func GenEndpointRuleId(group string, epRule *alerting.AlertingRule,
 	}
 	duration := parseDurationSeconds(epRule.Duration)
 
-	var labelsMap map[string]string
-	if externalLabels == nil {
-		labelsMap = epRule.Labels
-	} else {
-		labelsMap = make(map[string]string)
-		extLabels := externalLabels()
-		for key, value := range epRule.Labels {
-			if v, ok := extLabels[key]; !(ok && value == v) {
-				labelsMap[key] = value
-			}
+	var extLabels map[string]string
+	if externalLabels != nil {
+		extLabels = externalLabels()
+	}
+	labelsMap := make(map[string]string)
+	for key, value := range epRule.Labels {
+		if key == LabelKeyPrometheusReplica || key == LabelKeyThanosRulerReplica {
+			continue
+		}
+		if extLabels == nil {
+			labelsMap[key] = value
+			continue
+		}
+		if v, ok := extLabels[key]; !(ok && value == v) {
+			labelsMap[key] = value
 		}
 	}
 
 	lbls := make(map[string]string)
 	for k, v := range labelsMap {
+		if k == LabelKeyRuleId {
+			continue
+		}
 		lbls[k] = v
 	}
 	lbls[LabelKeyInternalRuleGroup] = group
@@ -148,11 +168,11 @@ func GetAlertingRulesStatus(ruleNamespace string, ruleChunk *ResourceRuleChunk, 
 			continue
 		}
 
-		for _, epRule := range group.Rules {
+		for i, epRule := range group.Rules {
 			if eid, err := GenEndpointRuleId(group.Name, epRule, extLabels); err != nil {
 				return nil, errors.Wrap(err, ErrGenRuleId)
 			} else {
-				idEpRules[eid] = epRule
+				idEpRules[eid] = group.Rules[i]
 				nameIds[epRule.Name] = append(nameIds[epRule.Name], eid)
 			}
 		}
@@ -200,11 +220,12 @@ func GetAlertingRulesStatus(ruleNamespace string, ruleChunk *ResourceRuleChunk, 
 func GetAlertingRuleStatus(ruleNamespace string, rule *ResourceRule, epRuleGroups []*alerting.RuleGroup,
 	extLabels func() map[string]string) (*v2alpha1.GettableAlertingRule, error) {
 
-	if rule == nil || rule.Rule == nil {
+	if rule == nil || rule.Alert == "" {
 		return nil, nil
 	}
 
-	var epRules = make(map[string]*alerting.AlertingRule)
+	var epRule *alerting.AlertingRule
+out:
 	for _, group := range epRuleGroups {
 		fileShort := strings.TrimSuffix(filepath.Base(group.File), filepath.Ext(group.File))
 		if !strings.HasPrefix(fileShort, ruleNamespace+"-") {
@@ -214,33 +235,23 @@ func GetAlertingRuleStatus(ruleNamespace string, rule *ResourceRule, epRuleGroup
 			continue
 		}
 
-		for _, epRule := range group.Rules {
-			if eid, err := GenEndpointRuleId(group.Name, epRule, extLabels); err != nil {
+		if group.Name != rule.Group {
+			continue
+		}
+
+		for _, epr := range group.Rules {
+			if epr.Name != rule.Alert { // first check name to speed up the hit
+				continue
+			}
+			if eid, err := GenEndpointRuleId(group.Name, epr, extLabels); err != nil {
 				return nil, errors.Wrap(err, ErrGenRuleId)
 			} else {
-				if rule.Rule.Alert == epRule.Name {
-					epRules[eid] = epRule
+				if rule.Id == eid {
+					epRule = epr
+					break out
 				}
 			}
 		}
-	}
-	var epRule *alerting.AlertingRule
-	if rule.Custom {
-		// guarantees the stability of the get operations.
-		var ids []string
-		for k, _ := range epRules {
-			ids = append(ids, k)
-		}
-		if l := len(ids); l > 0 {
-			if l > 1 {
-				sort.Slice(ids, func(i, j int) bool {
-					return v2alpha1.AlertingRuleIdCompare(ids[i], ids[j])
-				})
-			}
-			epRule = epRules[ids[0]]
-		}
-	} else {
-		epRule = epRules[rule.Id]
 	}
 
 	return getAlertingRuleStatus(&rule.ResourceRuleItem, epRule, rule.Custom, rule.Level), nil
@@ -249,7 +260,7 @@ func GetAlertingRuleStatus(ruleNamespace string, rule *ResourceRule, epRuleGroup
 func getAlertingRuleStatus(resRule *ResourceRuleItem, epRule *alerting.AlertingRule,
 	custom bool, level v2alpha1.RuleLevel) *v2alpha1.GettableAlertingRule {
 
-	if resRule == nil || resRule.Rule == nil {
+	if resRule == nil || resRule.Alert == "" {
 		return nil
 	}
 

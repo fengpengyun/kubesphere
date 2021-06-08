@@ -19,6 +19,8 @@ package s2irun
 import (
 	"context"
 	"fmt"
+	"time"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,10 +34,11 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
-	"kubesphere.io/kubesphere/pkg/utils/sliceutil"
-	"time"
 
-	devopsv1alpha1 "kubesphere.io/kubesphere/pkg/apis/devops/v1alpha1"
+	"kubesphere.io/kubesphere/pkg/utils/sliceutil"
+
+	devopsv1alpha1 "kubesphere.io/api/devops/v1alpha1"
+
 	devopsclient "kubesphere.io/kubesphere/pkg/client/clientset/versioned"
 	devopsinformers "kubesphere.io/kubesphere/pkg/client/informers/externalversions/devops/v1alpha1"
 	devopslisters "kubesphere.io/kubesphere/pkg/client/listers/devops/v1alpha1"

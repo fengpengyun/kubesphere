@@ -18,6 +18,10 @@ package user
 
 import (
 	"fmt"
+	"reflect"
+	"testing"
+	"time"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/diff"
@@ -26,14 +30,13 @@ import (
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+
 	"kubesphere.io/kubesphere/pkg/apiserver/authentication/options"
 	"kubesphere.io/kubesphere/pkg/client/clientset/versioned/fake"
 	ksinformers "kubesphere.io/kubesphere/pkg/client/informers/externalversions"
 	ldapclient "kubesphere.io/kubesphere/pkg/simple/client/ldap"
-	"reflect"
-	"testing"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -194,6 +197,10 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		user := object.(*iamv1alpha2.User)
 		expUser.Status.LastTransitionTime = nil
 		user.Status.LastTransitionTime = nil
+		if user.Status.State != nil {
+			disabled := iamv1alpha2.UserDisabled
+			expUser.Status.State = &disabled
+		}
 		if !reflect.DeepEqual(expUser, user) {
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
 				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintSideBySide(expObject, object))
@@ -237,7 +244,6 @@ func (f *fixture) expectUpdateUserStatusAction(user *iamv1alpha2.User) {
 
 	expect = expect.DeepCopy()
 	action = core.NewUpdateAction(schema.GroupVersionResource{Resource: "users"}, "", expect)
-	action.Subresource = "status"
 	f.actions = append(f.actions, action)
 }
 

@@ -18,8 +18,13 @@ package config
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/spf13/viper"
-	networkv1alpha1 "kubesphere.io/kubesphere/pkg/apis/network/v1alpha1"
+
+	networkv1alpha1 "kubesphere.io/api/network/v1alpha1"
+
 	authoptions "kubesphere.io/kubesphere/pkg/apiserver/authentication/options"
 	authorizationoptions "kubesphere.io/kubesphere/pkg/apiserver/authorization/options"
 	"kubesphere.io/kubesphere/pkg/simple/client/alerting"
@@ -28,8 +33,10 @@ import (
 	"kubesphere.io/kubesphere/pkg/simple/client/devops/jenkins"
 	"kubesphere.io/kubesphere/pkg/simple/client/events"
 	"kubesphere.io/kubesphere/pkg/simple/client/k8s"
+	"kubesphere.io/kubesphere/pkg/simple/client/kubeedge"
 	"kubesphere.io/kubesphere/pkg/simple/client/ldap"
 	"kubesphere.io/kubesphere/pkg/simple/client/logging"
+	"kubesphere.io/kubesphere/pkg/simple/client/metering"
 	"kubesphere.io/kubesphere/pkg/simple/client/monitoring/prometheus"
 	"kubesphere.io/kubesphere/pkg/simple/client/multicluster"
 	"kubesphere.io/kubesphere/pkg/simple/client/network"
@@ -38,8 +45,6 @@ import (
 	"kubesphere.io/kubesphere/pkg/simple/client/s3"
 	"kubesphere.io/kubesphere/pkg/simple/client/servicemesh"
 	"kubesphere.io/kubesphere/pkg/simple/client/sonarqube"
-	"reflect"
-	"strings"
 )
 
 // Package config saves configuration for running KubeSphere components
@@ -97,6 +102,8 @@ type Config struct {
 	AuditingOptions       *auditing.Options                          `json:"auditing,omitempty" yaml:"auditing,omitempty" mapstructure:"auditing"`
 	AlertingOptions       *alerting.Options                          `json:"alerting,omitempty" yaml:"alerting,omitempty" mapstructure:"alerting"`
 	NotificationOptions   *notification.Options                      `json:"notification,omitempty" yaml:"notification,omitempty" mapstructure:"notification"`
+	KubeEdgeOptions       *kubeedge.Options                          `json:"kubeedge,omitempty" yaml:"kubeedge,omitempty" mapstructure:"kubeedge"`
+	MeteringOptions       *metering.Options                          `json:"metering,omitempty" yaml:"metering,omitempty" mapstructure:"metering"`
 }
 
 // newConfig creates a default non-empty Config
@@ -120,6 +127,8 @@ func New() *Config {
 		MultiClusterOptions:   multicluster.NewOptions(),
 		EventsOptions:         events.NewEventsOptions(),
 		AuditingOptions:       auditing.NewAuditingOptions(),
+		KubeEdgeOptions:       kubeedge.NewKubeEdgeOptions(),
+		MeteringOptions:       metering.NewMeteringOptions(),
 	}
 }
 
@@ -196,6 +205,17 @@ func (conf *Config) ToMap() map[string]bool {
 			continue
 		}
 
+		if name == "openpitrix" {
+			// openpitrix is always true
+			result[name] = true
+			if conf.OpenPitrixOptions == nil {
+				result["openpitrix.appstore"] = false
+			} else {
+				result["openpitrix.appstore"] = !conf.OpenPitrixOptions.AppStoreConfIsEmpty()
+			}
+			continue
+		}
+
 		if c.Field(i).IsNil() {
 			result[name] = false
 		} else {
@@ -227,10 +247,6 @@ func (conf *Config) stripEmptyOptions() {
 
 	if conf.LdapOptions != nil && conf.LdapOptions.Host == "" {
 		conf.LdapOptions = nil
-	}
-
-	if conf.OpenPitrixOptions != nil && conf.OpenPitrixOptions.IsEmpty() {
-		conf.OpenPitrixOptions = nil
 	}
 
 	if conf.NetworkOptions != nil && conf.NetworkOptions.IsEmpty() {
@@ -270,5 +286,9 @@ func (conf *Config) stripEmptyOptions() {
 
 	if conf.AuditingOptions != nil && conf.AuditingOptions.Host == "" {
 		conf.AuditingOptions = nil
+	}
+
+	if conf.KubeEdgeOptions != nil && conf.KubeEdgeOptions.Endpoint == "" {
+		conf.KubeEdgeOptions = nil
 	}
 }

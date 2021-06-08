@@ -18,19 +18,25 @@ package oauth
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
+
+	"kubesphere.io/kubesphere/pkg/server/errors"
+
 	"github.com/emicklei/go-restful"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/klog"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+
 	"kubesphere.io/kubesphere/pkg/api"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
 	authoptions "kubesphere.io/kubesphere/pkg/apiserver/authentication/options"
 	"kubesphere.io/kubesphere/pkg/apiserver/query"
 	"kubesphere.io/kubesphere/pkg/apiserver/request"
 	"kubesphere.io/kubesphere/pkg/models/auth"
 	"kubesphere.io/kubesphere/pkg/models/iam/im"
-	"net/http"
 )
 
 const (
@@ -72,14 +78,14 @@ type handler struct {
 	options               *authoptions.AuthenticationOptions
 	tokenOperator         auth.TokenManagementInterface
 	passwordAuthenticator auth.PasswordAuthenticator
-	oauth2Authenticator   auth.OAuth2Authenticator
+	oauth2Authenticator   auth.OAuthAuthenticator
 	loginRecorder         auth.LoginRecorder
 }
 
 func newHandler(im im.IdentityManagementInterface,
 	tokenOperator auth.TokenManagementInterface,
 	passwordAuthenticator auth.PasswordAuthenticator,
-	oauth2Authenticator auth.OAuth2Authenticator,
+	oauth2Authenticator auth.OAuthAuthenticator,
 	loginRecorder auth.LoginRecorder,
 	options *authoptions.AuthenticationOptions) *handler {
 	return &handler{im: im,
@@ -171,10 +177,14 @@ func (h *handler) Authorize(req *restful.Request, resp *restful.Response) {
 	http.Redirect(resp, req.Request, redirectURL, http.StatusFound)
 }
 
-func (h *handler) oauthCallBack(req *restful.Request, resp *restful.Response) {
-	code := req.QueryParameter("code")
+func (h *handler) oauthCallback(req *restful.Request, resp *restful.Response) {
 	provider := req.PathParameter("callback")
-
+	// OAuth2 callback, see also https://tools.ietf.org/html/rfc6749#section-4.1.2
+	code := req.QueryParameter("code")
+	// CAS callback, see also https://apereo.github.io/cas/6.3.x/protocol/CAS-Protocol-V2-Specification.html#25-servicevalidate-cas-20
+	if code == "" {
+		code = req.QueryParameter("ticket")
+	}
 	if code == "" {
 		err := apierrors.NewUnauthorized("Unauthorized: missing code")
 		api.HandleError(resp, req, err)
@@ -313,4 +323,34 @@ func (h *handler) refreshTokenGrant(req *restful.Request, response *restful.Resp
 	}
 
 	response.WriteEntity(result)
+}
+
+func (h *handler) Logout(req *restful.Request, resp *restful.Response) {
+	authenticated, ok := request.UserFrom(req.Request.Context())
+	if ok {
+		if err := h.tokenOperator.RevokeAllUserTokens(authenticated.GetName()); err != nil {
+			api.HandleInternalError(resp, req, apierrors.NewInternalError(err))
+			return
+		}
+	}
+
+	postLogoutRedirectURI := req.QueryParameter("post_logout_redirect_uri")
+	if postLogoutRedirectURI == "" {
+		resp.WriteAsJson(errors.None)
+		return
+	}
+
+	redirectURL, err := url.Parse(postLogoutRedirectURI)
+	if err != nil {
+		api.HandleBadRequest(resp, req, fmt.Errorf("invalid logout redirect URI: %s", err))
+		return
+	}
+
+	state := req.QueryParameter("state")
+	if state != "" {
+		redirectURL.Query().Add("state", state)
+	}
+
+	resp.Header().Set("Content-Type", "text/plain")
+	http.Redirect(resp, req.Request, redirectURL.String(), http.StatusFound)
 }

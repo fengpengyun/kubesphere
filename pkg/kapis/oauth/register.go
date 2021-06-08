@@ -17,15 +17,17 @@ limitations under the License.
 package oauth
 
 import (
+	"net/http"
+
 	"github.com/emicklei/go-restful"
 	restfulspec "github.com/emicklei/go-restful-openapi"
+
 	"kubesphere.io/kubesphere/pkg/api"
 	"kubesphere.io/kubesphere/pkg/apiserver/authentication/oauth"
 	authoptions "kubesphere.io/kubesphere/pkg/apiserver/authentication/options"
 	"kubesphere.io/kubesphere/pkg/constants"
 	"kubesphere.io/kubesphere/pkg/models/auth"
 	"kubesphere.io/kubesphere/pkg/models/iam/im"
-	"net/http"
 )
 
 // ks-apiserver includes a built-in OAuth server. Users obtain OAuth access tokens to authenticate themselves to the API.
@@ -37,7 +39,7 @@ import (
 func AddToContainer(c *restful.Container, im im.IdentityManagementInterface,
 	tokenOperator auth.TokenManagementInterface,
 	passwordAuthenticator auth.PasswordAuthenticator,
-	oauth2Authenticator auth.OAuth2Authenticator,
+	oauth2Authenticator auth.OAuthAuthenticator,
 	loginRecorder auth.LoginRecorder,
 	options *authoptions.AuthenticationOptions) error {
 
@@ -104,8 +106,25 @@ func AddToContainer(c *restful.Container, im im.IdentityManagementInterface,
 			"otherwise, REQUIRED.  The scope of the access token as described by [RFC6479] Section 3.3.").Required(false)).
 		Param(ws.QueryParameter("state", "if the \"state\" parameter was present in the client authorization request."+
 			"The exact value received from the client.").Required(true)).
-		To(handler.oauthCallBack).
+		To(handler.oauthCallback).
 		Returns(http.StatusOK, api.StatusOK, oauth.Token{}).
+		Metadata(restfulspec.KeyOpenAPITags, []string{constants.AuthenticationTag}))
+
+	// https://openid.net/specs/openid-connect-rpinitiated-1_0.html
+	ws.Route(ws.GET("/logout").
+		Doc("This endpoint takes an ID token and logs the user out of KubeSphere if the "+
+			"subject matches the current session.").
+		Param(ws.QueryParameter("id_token_hint", "ID Token previously issued by the OP "+
+			"to the RP passed to the Logout Endpoint as a hint about the End-User's current authenticated "+
+			"session with the Client. This is used as an indication of the identity of the End-User that "+
+			"the RP is requesting be logged out by the OP.").Required(false)).
+		Param(ws.QueryParameter("post_logout_redirect_uri", "URL to which the RP is requesting "+
+			"that the End-User's User Agent be redirected after a logout has been performed. ").Required(false)).
+		Param(ws.QueryParameter("state", "Opaque value used by the RP to maintain state between "+
+			"the logout request and the callback to the endpoint specified by the post_logout_redirect_uri parameter.").
+			Required(false)).
+		To(handler.Logout).
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), "").
 		Metadata(restfulspec.KeyOpenAPITags, []string{constants.AuthenticationTag}))
 
 	c.Add(ws)

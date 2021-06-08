@@ -18,20 +18,23 @@ package workspace
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	tenantv1alpha1 "kubesphere.io/kubesphere/pkg/apis/tenant/v1alpha1"
-	"kubesphere.io/kubesphere/pkg/constants"
-	controllerutils "kubesphere.io/kubesphere/pkg/controller/utils/controller"
-	"kubesphere.io/kubesphere/pkg/utils/k8sutil"
-	"kubesphere.io/kubesphere/pkg/utils/sliceutil"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	tenantv1alpha1 "kubesphere.io/api/tenant/v1alpha1"
+
+	"kubesphere.io/kubesphere/pkg/constants"
+	controllerutils "kubesphere.io/kubesphere/pkg/controller/utils/controller"
+	"kubesphere.io/kubesphere/pkg/utils/k8sutil"
+	"kubesphere.io/kubesphere/pkg/utils/sliceutil"
 )
 
 const (
@@ -82,11 +85,6 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// controlled kubefed-controller-manager
-	if workspace.Labels[constants.KubefedManagedLabel] == "true" {
-		return ctrl.Result{}, nil
-	}
-
 	// name of your custom finalizer
 	finalizer := "finalizers.tenant.kubesphere.io"
 
@@ -124,6 +122,12 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	} else {
 		for _, namespace := range namespaces.Items {
+			// managed by kubefed-controller-manager
+			kubefedManaged := namespace.Labels[constants.KubefedManagedLabel] == "true"
+			if kubefedManaged {
+				continue
+			}
+			// managed by workspace
 			if err := r.bindWorkspace(rootCtx, logger, &namespace, workspace); err != nil {
 				return ctrl.Result{}, err
 			}

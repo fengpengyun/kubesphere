@@ -18,14 +18,16 @@ package es
 
 import (
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"github.com/json-iterator/go"
 	"io/ioutil"
-	"kubesphere.io/kubesphere/pkg/simple/client/es/query"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	jsoniter "github.com/json-iterator/go"
+
+	"kubesphere.io/kubesphere/pkg/simple/client/es/query"
 )
 
 func TestNewClient(t *testing.T) {
@@ -88,7 +90,7 @@ func TestClient_Search(t *testing.T) {
 			srv := mockElasticsearchService("/ks-logstash*/_search", test.fakeResp, test.fakeCode)
 			defer srv.Close()
 
-			c, err := NewClient(srv.URL, "ks-logstash", test.fakeVersion)
+			c, err := NewClient(srv.URL, false, "", "", "ks-logstash", test.fakeVersion)
 			if err != nil {
 				t.Fatalf("create client error, %s", err)
 			}

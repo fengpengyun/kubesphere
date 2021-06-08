@@ -25,7 +25,9 @@ import (
 
 	"github.com/open-policy-agent/opa/rego"
 	"k8s.io/apiserver/pkg/authentication/serviceaccount"
-	iamv1alpha2 "kubesphere.io/kubesphere/pkg/apis/iam/v1alpha2"
+
+	iamv1alpha2 "kubesphere.io/api/iam/v1alpha2"
+
 	"kubesphere.io/kubesphere/pkg/apiserver/authorization/authorizer"
 	"kubesphere.io/kubesphere/pkg/apiserver/request"
 	"kubesphere.io/kubesphere/pkg/models/iam/am"
@@ -137,7 +139,7 @@ func (r *RBACAuthorizer) Authorize(requestAttributes authorizer.Attributes) (aut
 			scope = "global-wide"
 		}
 
-		klog.Infof("RBAC: no rules authorize user %q with groups %q to %s %s", requestAttributes.GetUser().GetName(), requestAttributes.GetUser().GetGroups(), operation, scope)
+		klog.V(4).Infof("RBAC: no rules authorize user %q with groups %q to %s %s", requestAttributes.GetUser().GetName(), requestAttributes.GetUser().GetGroups(), operation, scope)
 	}
 
 	reason := ""

@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"kubesphere.io/kubesphere/pkg/models/openpitrix"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,14 +35,18 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+
+	clusterv1alpha1 "kubesphere.io/api/cluster/v1alpha1"
+	quotav1alpha2 "kubesphere.io/api/quota/v1alpha2"
+	tenantv1alpha1 "kubesphere.io/api/tenant/v1alpha1"
+	tenantv1alpha2 "kubesphere.io/api/tenant/v1alpha2"
+	typesv1beta1 "kubesphere.io/api/types/v1beta1"
+
 	"kubesphere.io/kubesphere/pkg/api"
 	auditingv1alpha1 "kubesphere.io/kubesphere/pkg/api/auditing/v1alpha1"
 	eventsv1alpha1 "kubesphere.io/kubesphere/pkg/api/events/v1alpha1"
 	loggingv1alpha2 "kubesphere.io/kubesphere/pkg/api/logging/v1alpha2"
-	clusterv1alpha1 "kubesphere.io/kubesphere/pkg/apis/cluster/v1alpha1"
-	tenantv1alpha1 "kubesphere.io/kubesphere/pkg/apis/tenant/v1alpha1"
-	tenantv1alpha2 "kubesphere.io/kubesphere/pkg/apis/tenant/v1alpha2"
-	typesv1beta1 "kubesphere.io/kubesphere/pkg/apis/types/v1beta1"
+	meteringv1alpha1 "kubesphere.io/kubesphere/pkg/api/metering/v1alpha1"
 	"kubesphere.io/kubesphere/pkg/apiserver/authorization/authorizer"
 	"kubesphere.io/kubesphere/pkg/apiserver/query"
 	"kubesphere.io/kubesphere/pkg/apiserver/request"
@@ -50,13 +56,20 @@ import (
 	"kubesphere.io/kubesphere/pkg/models/events"
 	"kubesphere.io/kubesphere/pkg/models/iam/am"
 	"kubesphere.io/kubesphere/pkg/models/logging"
+	"kubesphere.io/kubesphere/pkg/models/metering"
+	"kubesphere.io/kubesphere/pkg/models/monitoring"
 	resources "kubesphere.io/kubesphere/pkg/models/resources/v1alpha3"
 	resourcesv1alpha3 "kubesphere.io/kubesphere/pkg/models/resources/v1alpha3/resource"
+	resourcev1alpha3 "kubesphere.io/kubesphere/pkg/models/resources/v1alpha3/resource"
 	auditingclient "kubesphere.io/kubesphere/pkg/simple/client/auditing"
 	eventsclient "kubesphere.io/kubesphere/pkg/simple/client/events"
 	loggingclient "kubesphere.io/kubesphere/pkg/simple/client/logging"
+	meteringclient "kubesphere.io/kubesphere/pkg/simple/client/metering"
+	monitoringclient "kubesphere.io/kubesphere/pkg/simple/client/monitoring"
 	"kubesphere.io/kubesphere/pkg/utils/stringutils"
 )
+
+const orphanFinalizer = "orphan.finalizers.kubesphere.io"
 
 type Interface interface {
 	ListWorkspaces(user user.Info, query *query.Query) (*api.ListResult, error)
@@ -65,7 +78,7 @@ type Interface interface {
 	ListFederatedNamespaces(info user.Info, workspace string, param *query.Query) (*api.ListResult, error)
 	CreateNamespace(workspace string, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	CreateWorkspace(workspace *tenantv1alpha2.WorkspaceTemplate) (*tenantv1alpha2.WorkspaceTemplate, error)
-	DeleteWorkspace(workspace string) error
+	DeleteWorkspace(workspace string, opts metav1.DeleteOptions) error
 	UpdateWorkspace(workspace *tenantv1alpha2.WorkspaceTemplate) (*tenantv1alpha2.WorkspaceTemplate, error)
 	DescribeWorkspace(workspace string) (*tenantv1alpha2.WorkspaceTemplate, error)
 	ListWorkspaceClusters(workspace string) (*api.ListResult, error)
@@ -79,6 +92,12 @@ type Interface interface {
 	PatchNamespace(workspace string, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	PatchWorkspace(workspace string, data json.RawMessage) (*tenantv1alpha2.WorkspaceTemplate, error)
 	ListClusters(info user.Info) (*api.ListResult, error)
+	Metering(user user.Info, queryParam *meteringv1alpha1.Query, priceInfo meteringclient.PriceInfo) (monitoring.Metrics, error)
+	MeteringHierarchy(user user.Info, queryParam *meteringv1alpha1.Query, priceInfo meteringclient.PriceInfo) (metering.ResourceStatistic, error)
+	CreateWorkspaceResourceQuota(workspace string, resourceQuota *quotav1alpha2.ResourceQuota) (*quotav1alpha2.ResourceQuota, error)
+	DeleteWorkspaceResourceQuota(workspace string, resourceQuotaName string) error
+	UpdateWorkspaceResourceQuota(workspace string, resourceQuota *quotav1alpha2.ResourceQuota) (*quotav1alpha2.ResourceQuota, error)
+	DescribeWorkspaceResourceQuota(workspace string, resourceQuotaName string) (*quotav1alpha2.ResourceQuota, error)
 }
 
 type tenantOperator struct {
@@ -90,9 +109,16 @@ type tenantOperator struct {
 	events         events.Interface
 	lo             logging.LoggingOperator
 	auditing       auditing.Interface
+	mo             monitoring.MonitoringOperator
+	opRelease      openpitrix.ReleaseInterface
 }
 
-func New(informers informers.InformerFactory, k8sclient kubernetes.Interface, ksclient kubesphere.Interface, evtsClient eventsclient.Client, loggingClient loggingclient.Client, auditingclient auditingclient.Client, am am.AccessManagementInterface, authorizer authorizer.Authorizer) Interface {
+func New(informers informers.InformerFactory, k8sclient kubernetes.Interface, ksclient kubesphere.Interface, evtsClient eventsclient.Client, loggingClient loggingclient.Client, auditingclient auditingclient.Client, am am.AccessManagementInterface, authorizer authorizer.Authorizer, monitoringclient monitoringclient.Interface, resourceGetter *resourcev1alpha3.ResourceGetter) Interface {
+	var openpitrixRelease openpitrix.ReleaseInterface
+	if ksclient != nil {
+		openpitrixRelease = openpitrix.NewOpenpitrixOperator(informers, ksclient, nil)
+	}
+
 	return &tenantOperator{
 		am:             am,
 		authorizer:     authorizer,
@@ -102,6 +128,8 @@ func New(informers informers.InformerFactory, k8sclient kubernetes.Interface, ks
 		events:         events.NewEventsOperator(evtsClient),
 		lo:             logging.NewLoggingOperator(loggingClient),
 		auditing:       auditing.NewEventsOperator(auditingclient),
+		mo:             monitoring.NewMonitoringOperator(monitoringclient, nil, k8sclient, informers, resourceGetter),
+		opRelease:      openpitrixRelease,
 	}
 }
 
@@ -514,8 +542,22 @@ func (t *tenantOperator) ListClusters(user user.Info) (*api.ListResult, error) {
 	return &api.ListResult{Items: items, TotalItems: len(items)}, nil
 }
 
-func (t *tenantOperator) DeleteWorkspace(workspace string) error {
-	return t.ksclient.TenantV1alpha2().WorkspaceTemplates().Delete(context.Background(), workspace, *metav1.NewDeleteOptions(0))
+func (t *tenantOperator) DeleteWorkspace(workspace string, opts metav1.DeleteOptions) error {
+
+	if opts.PropagationPolicy != nil && *opts.PropagationPolicy == metav1.DeletePropagationOrphan {
+		wsp, err := t.DescribeWorkspace(workspace)
+		if err != nil {
+			klog.Error(err)
+			return err
+		}
+		wsp.Finalizers = append(wsp.Finalizers, orphanFinalizer)
+		_, err = t.ksclient.TenantV1alpha2().WorkspaceTemplates().Update(context.Background(), wsp, metav1.UpdateOptions{})
+		if err != nil {
+			klog.Error(err)
+			return err
+		}
+	}
+	return t.ksclient.TenantV1alpha2().WorkspaceTemplates().Delete(context.Background(), workspace, opts)
 }
 
 // listIntersectedNamespaces returns a list of namespaces that MUST meet ALL the following filters:
@@ -949,6 +991,38 @@ func (t *tenantOperator) Auditing(user user.Info, queryParam *auditingv1alpha1.Q
 		filter.ObjectRefNamespaceMap = namespaceCreateTimeMap
 		filter.WorkspaceMap = workspaceCreateTimeMap
 	})
+}
+
+func (t *tenantOperator) Metering(user user.Info, query *meteringv1alpha1.Query, priceInfo meteringclient.PriceInfo) (metrics monitoring.Metrics, err error) {
+
+	var opt QueryOptions
+
+	opt, err = t.makeQueryOptions(user, *query, query.Level)
+	if err != nil {
+		return
+	}
+	metrics, err = t.ProcessNamedMetersQuery(opt, priceInfo)
+
+	return
+}
+
+func (t *tenantOperator) MeteringHierarchy(user user.Info, queryParam *meteringv1alpha1.Query, priceInfo meteringclient.PriceInfo) (metering.ResourceStatistic, error) {
+	res, err := t.Metering(user, queryParam, priceInfo)
+	if err != nil {
+		return metering.ResourceStatistic{}, err
+	}
+
+	// get pods stat info under ns
+	podsStats := t.transformMetricData(res)
+
+	// classify pods stats
+	resourceStats, err := t.classifyPodStats(user, queryParam.Cluster, queryParam.NamespaceName, podsStats)
+	if err != nil {
+		klog.Error(err)
+		return metering.ResourceStatistic{}, err
+	}
+
+	return resourceStats, nil
 }
 
 func contains(objects []runtime.Object, object runtime.Object) bool {
